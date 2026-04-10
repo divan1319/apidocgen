@@ -11,20 +11,17 @@ import (
 
 const currentVersion = 1
 
-// Entry wraps an EndpointDoc with a source hash so stale entries can be detected.
 type Entry struct {
 	Doc        models.EndpointDoc `json:"doc"`
-	SourceHash string             `json:"source_hash"` // SHA-256 of RawSource
+	SourceHash string             `json:"source_hash"`
 }
 
-// Cache holds documented endpoints indexed by "METHOD:URI".
 type Cache struct {
 	Version int              `json:"version"`
 	Entries map[string]Entry `json:"entries"`
 	path    string
 }
 
-// Load reads the cache file from disk. If the file does not exist, an empty cache is returned.
 func Load(path string) (*Cache, error) {
 	c := &Cache{
 		Version: currentVersion,
@@ -51,7 +48,6 @@ func Load(path string) (*Cache, error) {
 	return c, nil
 }
 
-// Save writes the cache to disk atomically.
 func (c *Cache) Save() error {
 	data, err := json.MarshalIndent(c, "", "  ")
 	if err != nil {
@@ -68,25 +64,20 @@ func (c *Cache) Save() error {
 	return nil
 }
 
-// key returns the unique identifier for an endpoint.
 func key(ep models.Endpoint) string {
 	return ep.Method + ":" + ep.URI
 }
 
-// sourceHash computes a short hash of the raw source to detect changes.
 func sourceHash(ep models.Endpoint) string {
 	h := sha256.Sum256([]byte(ep.RawSource))
 	return fmt.Sprintf("%x", h[:8])
 }
 
-// Get returns the cached EndpointDoc if it exists and the source has not changed.
-// The second return value is true on a valid cache hit.
 func (c *Cache) Get(ep models.Endpoint) (*models.EndpointDoc, bool) {
 	entry, ok := c.Entries[key(ep)]
 	if !ok {
 		return nil, false
 	}
-	// If the source changed, treat as a miss so Claude re-documents it.
 	if entry.SourceHash != sourceHash(ep) {
 		return nil, false
 	}
@@ -94,7 +85,6 @@ func (c *Cache) Get(ep models.Endpoint) (*models.EndpointDoc, bool) {
 	return &doc, true
 }
 
-// Set stores the documentation for an endpoint in the cache.
 func (c *Cache) Set(ep models.Endpoint, doc models.EndpointDoc) {
 	c.Entries[key(ep)] = Entry{
 		Doc:        doc,
@@ -102,7 +92,6 @@ func (c *Cache) Set(ep models.Endpoint, doc models.EndpointDoc) {
 	}
 }
 
-// Len returns the number of entries in the cache.
 func (c *Cache) Len() int {
 	return len(c.Entries)
 }

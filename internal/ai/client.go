@@ -6,7 +6,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
+	"time"
 
 	"github.com/divan1319/apidocgen/pkg/models"
 )
@@ -67,14 +69,34 @@ type response struct {
 }
 
 // DocumentEndpoint sends an endpoint to Claude and returns enriched documentation.
+// Retries up to 4 times with exponential backoff on rate limit (429) or server (5xx) responses.
 func (c *Client) DocumentEndpoint(ep models.Endpoint) (*models.EndpointDoc, error) {
-	prompt := buildPrompt(ep)
+	var lastErr error
+	wait := 2 * time.Second
 
+	for attempt := 0; attempt < 4; attempt++ {
+		if attempt > 0 {
+			fmt.Fprintf(os.Stderr, "    rate limited, retrying in %s...\n", wait)
+			time.Sleep(wait)
+			wait *= 2 // 2s → 4s → 8s
+		}
+
+		doc, err, retry := c.attempt(ep)
+		if !retry {
+			return doc, err
+		}
+		lastErr = err
+	}
+
+	return nil, fmt.Errorf("exceeded retries: %w", lastErr)
+}
+
+func (c *Client) attempt(ep models.Endpoint) (doc *models.EndpointDoc, err error, retry bool) {
 	reqBody, _ := json.Marshal(request{
 		Model:     model,
 		MaxTokens: 4096,
 		System:    c.systemPrompt,
-		Messages:  []message{{Role: "user", Content: prompt}},
+		Messages:  []message{{Role: "user", Content: buildPrompt(ep)}},
 	})
 
 	req, _ := http.NewRequest("POST", anthropicAPI, bytes.NewReader(reqBody))
@@ -84,20 +106,29 @@ func (c *Client) DocumentEndpoint(ep models.Endpoint) (*models.EndpointDoc, erro
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return nil, fmt.Errorf("calling Claude API: %w", err)
+		return nil, fmt.Errorf("calling Claude API: %w", err), false
 	}
 	defer resp.Body.Close()
 
+	// Rate limited or server error — worth retrying with backoff
+	if resp.StatusCode == 429 {
+		return nil, fmt.Errorf("rate limited (429)"), true
+	}
+	if resp.StatusCode >= 500 {
+		return nil, fmt.Errorf("server error (%d)", resp.StatusCode), true
+	}
+
 	var apiResp response
 	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
-		return nil, fmt.Errorf("decoding response: %w", err)
+		return nil, fmt.Errorf("decoding response: %w", err), false
 	}
 
 	if len(apiResp.Content) == 0 {
-		return nil, fmt.Errorf("empty response from Claude")
+		return nil, fmt.Errorf("empty response from Claude"), false
 	}
 
-	return parseDocResponse(ep, apiResp.Content[0].Text)
+	result, err := parseDocResponse(ep, apiResp.Content[0].Text)
+	return result, err, false
 }
 
 func buildPrompt(ep models.Endpoint) string {

@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+	"sync"
 
 	"github.com/divan1319/apidocgen/internal/ai"
 	"github.com/divan1319/apidocgen/internal/cache"
@@ -19,15 +20,16 @@ import (
 func main() {
 	genCmd := flag.NewFlagSet("generate", flag.ExitOnError)
 
-	lang := genCmd.String("lang", "laravel", "Language/framework: laravel (more coming soon)")
-	routes := genCmd.String("routes", "", "Comma-separated route files (e.g. routes/api.php)")
-	root := genCmd.String("root", ".", "Project root directory")
-	output := genCmd.String("output", "api-docs.html", "Output HTML file")
-	title := genCmd.String("title", "API Documentation", "Documentation title")
-	apiKey := genCmd.String("api-key", "", "Anthropic API key (or set ANTHROPIC_API_KEY env var)")
-	docLang := genCmd.String("doc-lang", "", "Documentation language: en (English) or es (Español). Prompted interactively if not set.")
-	cacheFile := genCmd.String("cache", "apidocgen-cache.json", "Path to the endpoint documentation cache file. Use --cache=\"\" to disable.")
-	forceRegen := genCmd.Bool("force", false, "Ignore cache and re-document all endpoints with Claude.")
+	lang       := genCmd.String("lang",    "laravel",           "Language/framework: laravel (more coming soon)")
+	routes     := genCmd.String("routes",  "",                  "Comma-separated route files (e.g. routes/api.php)")
+	root       := genCmd.String("root",    ".",                 "Project root directory")
+	output     := genCmd.String("output",  "api-docs.html",     "Output HTML file")
+	title      := genCmd.String("title",   "API Documentation", "Documentation title")
+	apiKey     := genCmd.String("api-key", "",                  "Anthropic API key (or set ANTHROPIC_API_KEY env var)")
+	docLang    := genCmd.String("doc-lang","",                  "Documentation language: en (English) or es (Español). Prompted interactively if not set.")
+	cacheFile  := genCmd.String("cache",   "apidocgen-cache.json", "Path to cache file. Use --cache=\"\" to disable.")
+	forceRegen := genCmd.Bool("force",     false,               "Ignore cache and re-document all endpoints with Claude.")
+	workers    := genCmd.Int("workers",    5,                   "Concurrent requests to Claude API (default: 5)")
 
 	if len(os.Args) < 2 {
 		printUsage()
@@ -37,7 +39,7 @@ func main() {
 	switch os.Args[1] {
 	case "generate":
 		genCmd.Parse(os.Args[2:])
-		runGenerate(*lang, *routes, *root, *output, *title, *apiKey, *docLang, *cacheFile, *forceRegen)
+		runGenerate(*lang, *routes, *root, *output, *title, *apiKey, *docLang, *cacheFile, *forceRegen, *workers)
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -47,7 +49,7 @@ func main() {
 	}
 }
 
-func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile string, forceRegen bool) {
+func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile string, forceRegen bool, workers int) {
 	if apiKey == "" {
 		apiKey = os.Getenv("ANTHROPIC_API_KEY")
 	}
@@ -62,13 +64,13 @@ func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile s
 
 	switch lang {
 	case "laravel":
-		runLaravel(files, root, output, title, apiKey, docLang, cacheFile, forceRegen)
+		runLaravel(files, root, output, title, apiKey, docLang, cacheFile, forceRegen, workers)
 	default:
 		fatal("unsupported language: %s (supported: laravel)", lang)
 	}
 }
 
-func runLaravel(files []string, root, output, title, apiKey, docLang, cacheFile string, forceRegen bool) {
+func runLaravel(files []string, root, output, title, apiKey, docLang, cacheFile string, forceRegen bool, workers int) {
 	p := laravel.New(root)
 
 	// ── Step 1: resolve all included files ───────────────────────────────────
@@ -148,58 +150,33 @@ func runLaravel(files []string, root, output, title, apiKey, docLang, cacheFile 
 	}
 	fmt.Printf("  Found %d section(s), %d endpoint(s) total\n", len(sections), totalEndpoints)
 
-	// ── Step 6: document with AI (using cache when available) ────────────────
-	fmt.Println("\n→ Generating documentation with Claude...")
+	// ── Step 6: document with AI (worker pool + cache) ────────────────────────
+	fmt.Printf("\n→ Generating documentation with Claude (workers: %d)...\n", workers)
 	client, err := ai.New(apiKey, docLang)
 	if err != nil {
 		fatal("initializing AI client: %v", err)
 	}
 
 	var sectionDocs []models.SectionDoc
-	hits, misses := 0, 0
+	totalHits, totalMisses := 0, 0
 
 	for _, section := range sections {
-		fmt.Printf("\n  [%s]\n", section.Name)
-		sd := models.SectionDoc{
-			Name:     section.Name,
-			Version:  section.Version,
-			FilePath: section.FilePath,
-		}
-
-		for i, ep := range section.Endpoints {
-			// Check cache first (unless --force)
-			if docCache != nil && !forceRegen {
-				if cached, ok := docCache.Get(ep); ok {
-					fmt.Printf("    [%d/%d] %s %s  (cached)\n", i+1, len(section.Endpoints), ep.Method, ep.URI)
-					sd.Docs = append(sd.Docs, *cached)
-					hits++
-					continue
-				}
-			}
-
-			fmt.Printf("    [%d/%d] %s %s  (documenting...)\n", i+1, len(section.Endpoints), ep.Method, ep.URI)
-			doc, err := client.DocumentEndpoint(ep)
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "    warning: failed to document %s %s: %v\n", ep.Method, ep.URI, err)
-				continue
-			}
-			sd.Docs = append(sd.Docs, *doc)
-			misses++
-
-			// Save to cache immediately after each successful call
-			if docCache != nil {
-				docCache.Set(ep, *doc)
-				if saveErr := docCache.Save(); saveErr != nil {
-					fmt.Fprintf(os.Stderr, "    warning: could not save cache: %v\n", saveErr)
-				}
-			}
-		}
-
+		fmt.Printf("\n  [%s] — %d endpoints\n", section.Name, len(section.Endpoints))
+		sd, hits, misses := documentSection(client, docCache, section, workers, forceRegen)
 		sectionDocs = append(sectionDocs, sd)
+		totalHits += hits
+		totalMisses += misses
+
+		// Save cache after each section
+		if docCache != nil && misses > 0 {
+			if err := docCache.Save(); err != nil {
+				fmt.Fprintf(os.Stderr, "  warning: could not save cache: %v\n", err)
+			}
+		}
 	}
 
 	if docCache != nil {
-		fmt.Printf("\n  Cache summary: %d from cache, %d newly documented\n", hits, misses)
+		fmt.Printf("\n  Cache summary: %d from cache, %d newly documented\n", totalHits, totalMisses)
 	}
 
 	// ── Step 7: generate HTML ─────────────────────────────────────────────────
@@ -212,18 +189,91 @@ func runLaravel(files []string, root, output, title, apiKey, docLang, cacheFile 
 	fmt.Printf("✓ Done! Open %s in your browser.\n", output)
 }
 
-// suggestSectionName infers a human-readable name from a file path.
-// api/v2/gestionAcademicaRoute.php → "Gestion Academica"
-// api/inscripcionRoute.php         → "Inscripcion"
+// documentSection documents all endpoints in a section concurrently using a
+// worker pool limited by `workers`. Cache hits are served without calling Claude.
+// Results are written by index so order is preserved.
+func documentSection(
+	client *ai.Client,
+	docCache *cache.Cache,
+	section models.RouteSection,
+	workers int,
+	forceRegen bool,
+) (sd models.SectionDoc, hits, misses int) {
+	sd = models.SectionDoc{
+		Name:     section.Name,
+		Version:  section.Version,
+		FilePath: section.FilePath,
+	}
+
+	type result struct {
+		doc    *models.EndpointDoc
+		err    error
+		cached bool
+	}
+
+	results := make([]result, len(section.Endpoints))
+	sem := make(chan struct{}, workers)
+	var wg sync.WaitGroup
+	var cacheMu sync.Mutex // protects docCache.Set across goroutines
+
+	for i, ep := range section.Endpoints {
+		// Serve from cache without spinning up a goroutine
+		if docCache != nil && !forceRegen {
+			if cached, ok := docCache.Get(ep); ok {
+				results[i] = result{doc: cached, cached: true}
+				continue
+			}
+		}
+
+		wg.Add(1)
+		go func(i int, ep models.Endpoint) {
+			defer wg.Done()
+			sem <- struct{}{}
+			defer func() { <-sem }()
+
+			doc, err := client.DocumentEndpoint(ep)
+			results[i] = result{doc: doc, err: err}
+
+			if err == nil && doc != nil && docCache != nil {
+				cacheMu.Lock()
+				docCache.Set(ep, *doc)
+				cacheMu.Unlock()
+			}
+		}(i, ep)
+	}
+
+	wg.Wait()
+
+	for i, r := range results {
+		ep := section.Endpoints[i]
+		if r.cached {
+			fmt.Printf("    %s %s  (cached)\n", ep.Method, ep.URI)
+			sd.Docs = append(sd.Docs, *r.doc)
+			hits++
+			continue
+		}
+		if r.err != nil {
+			fmt.Fprintf(os.Stderr, "    warning: failed %s %s: %v\n", ep.Method, ep.URI, r.err)
+			continue
+		}
+		if r.doc != nil {
+			fmt.Printf("    %s %s  ✓\n", ep.Method, ep.URI)
+			sd.Docs = append(sd.Docs, *r.doc)
+			misses++
+		}
+	}
+
+	fmt.Printf("    — %d documented, %d from cache, %d failed\n",
+		misses, hits, len(section.Endpoints)-hits-misses)
+	return
+}
+
 func suggestSectionName(path string) string {
 	base := filepath.Base(path)
-	// Remove extension
 	base = strings.TrimSuffix(base, filepath.Ext(base))
-	// Remove common suffixes
 	for _, suffix := range []string{"Route", "Routes", "route", "routes"} {
 		base = strings.TrimSuffix(base, suffix)
 	}
-	// Split camelCase into words
 	re := regexp.MustCompile(`([A-Z][a-z]+|[a-z]+|[A-Z]+(?:[A-Z][a-z]*)*)`)
 	words := re.FindAllString(base, -1)
 	for i, w := range words {
@@ -231,7 +281,6 @@ func suggestSectionName(path string) string {
 	}
 	name := strings.Join(words, " ")
 
-	// Append version if detected in path
 	vre := regexp.MustCompile(`(?i)[/\\](v\d+)[/\\]`)
 	if m := vre.FindStringSubmatch(path); m != nil {
 		name += " " + strings.ToUpper(m[1])
@@ -262,16 +311,14 @@ FLAGS:
   --title     Documentation title (default: "API Documentation")
   --api-key   Anthropic API key (or use ANTHROPIC_API_KEY env var)
   --doc-lang  Documentation language: en (English) or es (Español)
-              If not set, you will be prompted interactively.
   --cache     Path to cache file (default: apidocgen-cache.json)
-              Already-documented endpoints are reused automatically.
               Use --cache="" to disable caching entirely.
   --force     Ignore cache and re-document all endpoints with Claude.
+  --workers   Concurrent Claude API requests (default: 5)
 
 EXAMPLES:
   apidocgen generate --routes routes/api.php --root /path/to/laravel-project
-  apidocgen generate --routes routes/api.php,routes/web.php --title "My API v2"
-  apidocgen generate --routes routes/api.php --doc-lang es
+  apidocgen generate --routes routes/api.php --doc-lang es --workers 10
   apidocgen generate --routes routes/api.php --force
   ANTHROPIC_API_KEY=sk-... apidocgen generate --routes routes/api.php`)
 }

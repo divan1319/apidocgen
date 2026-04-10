@@ -17,8 +17,8 @@
             "Description": ""
           }
         },
-        "Summary": "Elimina un nodo del catálogo por su identificador",
-        "Description": "Este endpoint permite eliminar de forma permanente un nodo específico del árbol de catálogo mediante su identificador único. La operación es destructiva e irreversible. Dependiendo de la lógica de negocio implementada, puede eliminar también los nodos hijos asociados (eliminación en cascada) o impedir la eliminación si el nodo tiene dependencias. Se recomienda verificar que el nodo no tenga elementos activos vinculados antes de proceder con la eliminación.",
+        "Summary": "Elimina un nodo del árbol de catálogo por su ID",
+        "Description": "Este endpoint permite eliminar un nodo específico del árbol de catálogo utilizando su identificador único. La operación es permanente e irreversible. Dependiendo de la lógica de negocio implementada, la eliminación de un nodo padre puede afectar a sus nodos hijos (eliminación en cascada o reasignación). Se recomienda verificar las dependencias del nodo antes de proceder con la eliminación.",
         "Parameters": [
           {
             "Name": "id",
@@ -31,43 +31,38 @@
         "Responses": [
           {
             "Code": 200,
-            "Description": "El nodo fue eliminado exitosamente del catálogo.",
-            "Body": "{\"success\": true, \"message\": \"El nodo ha sido eliminado correctamente.\", \"data\": null}"
+            "Description": "El nodo fue eliminado exitosamente del catálogo",
+            "Body": "{\"success\": true, \"message\": \"Nodo eliminado correctamente\", \"data\": null}"
           },
           {
             "Code": 204,
-            "Description": "El nodo fue eliminado exitosamente. No se retorna contenido en el cuerpo de la respuesta.",
+            "Description": "El nodo fue eliminado exitosamente, sin contenido en la respuesta",
             "Body": ""
           },
           {
             "Code": 404,
-            "Description": "No se encontró ningún nodo con el identificador proporcionado.",
-            "Body": "{\"success\": false, \"message\": \"El nodo especificado no fue encontrado.\", \"errors\": {\"id\": [\"El nodo con el id proporcionado no existe.\"]}}"
+            "Description": "El nodo con el ID especificado no fue encontrado en el catálogo",
+            "Body": "{\"success\": false, \"message\": \"Nodo no encontrado\", \"errors\": {\"id\": [\"El nodo con el ID proporcionado no existe\"]}}"
           },
           {
             "Code": 409,
-            "Description": "No es posible eliminar el nodo porque tiene nodos hijos o dependencias activas asociadas.",
-            "Body": "{\"success\": false, \"message\": \"No se puede eliminar el nodo porque tiene elementos dependientes activos.\", \"errors\": {\"id\": [\"El nodo tiene dependencias que impiden su eliminación.\"]}}"
-          },
-          {
-            "Code": 422,
-            "Description": "El identificador proporcionado no pasó las validaciones requeridas.",
-            "Body": "{\"success\": false, \"message\": \"Error de validación.\", \"errors\": {\"id\": [\"El campo id debe ser un entero válido y existir en el catálogo.\"]}}"
+            "Description": "Conflicto al intentar eliminar el nodo, puede tener dependencias activas o nodos hijos asociados",
+            "Body": "{\"success\": false, \"message\": \"No se puede eliminar el nodo porque tiene elementos dependientes asociados\", \"errors\": {\"id\": [\"El nodo tiene nodos hijos o dependencias que impiden su eliminación\"]}}"
           },
           {
             "Code": 401,
-            "Description": "El usuario no está autenticado. Se requiere un token válido para acceder a este endpoint.",
-            "Body": "{\"success\": false, \"message\": \"No autenticado. Por favor, inicie sesión.\", \"errors\": null}"
+            "Description": "No autenticado. El token de acceso es inválido, ha expirado o no fue proporcionado",
+            "Body": "{\"success\": false, \"message\": \"No autenticado\", \"errors\": {\"token\": [\"Unauthenticated\"]}}"
           },
           {
             "Code": 403,
-            "Description": "El usuario autenticado no tiene permisos suficientes para eliminar nodos del catálogo.",
-            "Body": "{\"success\": false, \"message\": \"No tiene permisos para realizar esta acción.\", \"errors\": null}"
+            "Description": "Acceso prohibido. El usuario autenticado no tiene permisos para eliminar nodos del catálogo",
+            "Body": "{\"success\": false, \"message\": \"No autorizado\", \"errors\": {\"authorization\": [\"This action is unauthorized\"]}}"
           },
           {
             "Code": 500,
-            "Description": "Ocurrió un error interno en el servidor al intentar procesar la eliminación del nodo.",
-            "Body": "{\"success\": false, \"message\": \"Error interno del servidor. Por favor, intente más tarde.\", \"errors\": null}"
+            "Description": "Error interno del servidor durante el proceso de eliminación",
+            "Body": "{\"success\": false, \"message\": \"Error interno del servidor\", \"errors\": {\"server\": [\"An unexpected error occurred\"]}}"
           }
         ],
         "Example": {
@@ -97,47 +92,52 @@
             "Description": ""
           }
         },
-        "Summary": "Elimina un ítem del catálogo por su ID",
-        "Description": "Este endpoint permite eliminar de forma permanente un ítem del catálogo identificado por su ID. Se realiza una operación de borrado definitivo (hard delete) en la base de datos. Si el recurso no existe, se retorna un error 404. La operación no puede deshacerse una vez ejecutada. Es posible que existan efectos secundarios como la eliminación en cascada de registros relacionados, dependiendo de la configuración del modelo.",
+        "Summary": "Elimina un elemento del catálogo por su identificador único",
+        "Description": "Este endpoint permite eliminar de forma permanente un elemento del catálogo identificado por su ID. La operación es irreversible y elimina el registro de la base de datos. Si el elemento no existe, se retorna un error 404. Se requiere autenticación para realizar esta operación. Es posible que existan restricciones de eliminación si el elemento tiene relaciones asociadas con otros recursos del sistema.",
         "Parameters": [
           {
             "Name": "id",
             "Type": "integer",
             "Required": true,
             "Rules": "required|integer|exists:catalogo,id",
-            "Description": "Identificador único del ítem del catálogo que se desea eliminar. Se pasa como parámetro en la URL."
+            "Description": "Identificador único del elemento del catálogo que se desea eliminar. Debe corresponder a un registro existente en la base de datos."
           }
         ],
         "Responses": [
           {
             "Code": 200,
-            "Description": "El ítem del catálogo fue eliminado exitosamente",
-            "Body": "{\"success\": true, \"message\": \"El ítem del catálogo ha sido eliminado correctamente\"}"
+            "Description": "El elemento del catálogo fue eliminado exitosamente",
+            "Body": "{\"success\": true, \"message\": \"Elemento del catálogo eliminado correctamente\", \"data\": null}"
           },
           {
             "Code": 204,
-            "Description": "El ítem fue eliminado exitosamente y no se retorna contenido en el cuerpo de la respuesta",
+            "Description": "El elemento fue eliminado exitosamente, sin contenido en la respuesta",
             "Body": ""
           },
           {
             "Code": 404,
-            "Description": "No se encontró ningún ítem del catálogo con el ID proporcionado",
-            "Body": "{\"success\": false, \"message\": \"Ítem del catálogo no encontrado\", \"error\": \"Not Found\"}"
+            "Description": "El elemento del catálogo no fue encontrado con el ID proporcionado",
+            "Body": "{\"success\": false, \"message\": \"Elemento del catálogo no encontrado\", \"errors\": {\"id\": \"El recurso solicitado no existe\"}}"
           },
           {
             "Code": 401,
-            "Description": "El usuario no está autenticado o el token es inválido/expirado",
-            "Body": "{\"success\": false, \"message\": \"No autenticado\", \"error\": \"Unauthenticated\"}"
+            "Description": "El usuario no está autenticado o el token es inválido",
+            "Body": "{\"success\": false, \"message\": \"No autenticado\", \"errors\": {\"auth\": \"Token inválido o expirado\"}}"
           },
           {
             "Code": 403,
-            "Description": "El usuario autenticado no tiene permisos suficientes para eliminar este recurso",
-            "Body": "{\"success\": false, \"message\": \"Acción no autorizada\", \"error\": \"Forbidden\"}"
+            "Description": "El usuario autenticado no tiene permisos para eliminar elementos del catálogo",
+            "Body": "{\"success\": false, \"message\": \"Acceso denegado\", \"errors\": {\"auth\": \"No tienes permisos para realizar esta acción\"}}"
+          },
+          {
+            "Code": 409,
+            "Description": "Conflicto al intentar eliminar el elemento debido a dependencias o relaciones con otros recursos",
+            "Body": "{\"success\": false, \"message\": \"No se puede eliminar el elemento\", \"errors\": {\"id\": \"El elemento tiene registros asociados que impiden su eliminación\"}}"
           },
           {
             "Code": 500,
-            "Description": "Error interno del servidor al intentar eliminar el ítem, posiblemente por restricciones de integridad referencial en la base de datos",
-            "Body": "{\"success\": false, \"message\": \"Error interno del servidor\", \"error\": \"Internal Server Error\"}"
+            "Description": "Error interno del servidor al intentar procesar la eliminación",
+            "Body": "{\"success\": false, \"message\": \"Error interno del servidor\", \"errors\": {\"server\": \"Ocurrió un error inesperado, intente nuevamente más tarde\"}}"
           }
         ],
         "Example": {
@@ -167,28 +167,28 @@
             "Description": ""
           }
         },
-        "Summary": "Obtiene el listado completo del catálogo de ítems",
-        "Description": "Retorna todos los ítems disponibles en el catálogo del sistema. Este endpoint permite consultar el inventario completo de productos o servicios registrados, incluyendo sus atributos principales como nombre, descripción, precio y disponibilidad. Es un endpoint de solo lectura que no modifica ningún dato.",
+        "Summary": "Obtiene la lista completa de ítems del catálogo",
+        "Description": "Retorna todos los registros disponibles en el catálogo de ítems. Este endpoint permite a los clientes consultar el listado general de productos o servicios registrados en el sistema. No requiere parámetros obligatorios y devuelve una colección de ítems con sus atributos principales.",
         "Parameters": null,
         "Responses": [
           {
             "Code": 200,
-            "Description": "Listado de ítems del catálogo obtenido exitosamente",
-            "Body": "{\"data\": [{\"id\": 1, \"nombre\": \"Producto A\", \"descripcion\": \"Descripción del producto A\", \"precio\": 99.99, \"disponible\": true, \"created_at\": \"2024-01-01T00:00:00.000000Z\", \"updated_at\": \"2024-01-01T00:00:00.000000Z\"}, {\"id\": 2, \"nombre\": \"Producto B\", \"descripcion\": \"Descripción del producto B\", \"precio\": 149.99, \"disponible\": false, \"created_at\": \"2024-01-02T00:00:00.000000Z\", \"updated_at\": \"2024-01-02T00:00:00.000000Z\"}]}"
+            "Description": "Solicitud exitosa. Retorna la lista completa de ítems del catálogo.",
+            "Body": "{\"data\": [{\"id\": 1, \"nombre\": \"Producto A\", \"descripcion\": \"Descripción del producto A\", \"precio\": 99.99, \"categoria\": \"Electrónica\", \"disponible\": true, \"created_at\": \"2024-01-15T10:00:00Z\", \"updated_at\": \"2024-01-15T10:00:00Z\"}, {\"id\": 2, \"nombre\": \"Producto B\", \"descripcion\": \"Descripción del producto B\", \"precio\": 49.99, \"categoria\": \"Ropa\", \"disponible\": true, \"created_at\": \"2024-01-16T08:30:00Z\", \"updated_at\": \"2024-01-16T08:30:00Z\"}]}"
           },
           {
             "Code": 401,
-            "Description": "No autenticado. El token de acceso es inválido o no fue proporcionado",
+            "Description": "No autenticado. El token de acceso es inválido o no fue proporcionado.",
             "Body": "{\"message\": \"Unauthenticated.\"}"
           },
           {
             "Code": 403,
-            "Description": "No autorizado. El usuario no tiene permisos para acceder al catálogo",
+            "Description": "No autorizado. El usuario autenticado no tiene permisos para acceder al catálogo.",
             "Body": "{\"message\": \"This action is unauthorized.\"}"
           },
           {
             "Code": 500,
-            "Description": "Error interno del servidor al intentar obtener el catálogo",
+            "Description": "Error interno del servidor al intentar recuperar los ítems del catálogo.",
             "Body": "{\"message\": \"Server Error\"}"
           }
         ],
@@ -220,30 +220,30 @@
           }
         },
         "Summary": "Obtiene la estructura jerárquica (árbol) de un examen del catálogo",
-        "Description": "Retorna la estructura completa en formato árbol de un examen específico del catálogo, identificado por su ID. Este endpoint devuelve la organización jerárquica del examen, incluyendo secciones, subsecciones, preguntas y demás elementos que conforman su estructura. Es útil para visualizar cómo está compuesto un examen antes de aplicarlo o editarlo.",
+        "Description": "Recupera la estructura completa en forma de árbol de un examen específico del catálogo, identificado por su ID. Retorna la organización jerárquica del examen, incluyendo secciones, subsecciones, preguntas y demás elementos que componen su estructura interna. Este endpoint es de solo lectura y no modifica ningún dato.",
         "Parameters": [
           {
             "Name": "examenId",
             "Type": "integer",
             "Required": true,
             "Rules": "required|integer|exists:examenes,id",
-            "Description": "Identificador único del examen en el catálogo cuya estructura se desea obtener"
+            "Description": "Identificador único del examen en el catálogo cuya estructura jerárquica se desea consultar"
           }
         ],
         "Responses": [
           {
             "Code": 200,
             "Description": "Estructura jerárquica del examen obtenida exitosamente",
-            "Body": "{\"data\": {\"id\": 1, \"nombre\": \"Examen de Matemáticas\", \"descripcion\": \"Evaluación general de matemáticas\", \"secciones\": [{\"id\": 10, \"titulo\": \"Álgebra\", \"orden\": 1, \"preguntas\": [{\"id\": 100, \"texto\": \"¿Cuánto es 2+2?\", \"tipo\": \"opcion_multiple\", \"orden\": 1, \"opciones\": [{\"id\": 1001, \"texto\": \"4\", \"correcta\": true}, {\"id\": 1002, \"texto\": \"3\", \"correcta\": false}]}]}]}}"
+            "Body": "{\"data\": {\"id\": 1, \"nombre\": \"Examen de Matemáticas\", \"descripcion\": \"Evaluación general de matemáticas\", \"estructura\": [{\"id\": 10, \"tipo\": \"seccion\", \"titulo\": \"Álgebra\", \"orden\": 1, \"hijos\": [{\"id\": 101, \"tipo\": \"pregunta\", \"enunciado\": \"¿Cuánto es 2+2?\", \"orden\": 1, \"hijos\": []}]}, {\"id\": 11, \"tipo\": \"seccion\", \"titulo\": \"Geometría\", \"orden\": 2, \"hijos\": []}]}}"
           },
           {
             "Code": 404,
-            "Description": "El examen con el ID especificado no fue encontrado en el catálogo",
-            "Body": "{\"message\": \"No se encontró el examen solicitado.\", \"error\": \"Not Found\"}"
+            "Description": "El examen con el ID proporcionado no fue encontrado en el catálogo",
+            "Body": "{\"message\": \"No query results for model [Examen] 99\"}"
           },
           {
             "Code": 401,
-            "Description": "El usuario no está autenticado o el token de acceso es inválido",
+            "Description": "El usuario no está autenticado o el token proporcionado es inválido",
             "Body": "{\"message\": \"Unauthenticated.\"}"
           },
           {
@@ -252,9 +252,9 @@
             "Body": "{\"message\": \"This action is unauthorized.\"}"
           },
           {
-            "Code": 500,
-            "Description": "Error interno del servidor al intentar obtener la estructura del examen",
-            "Body": "{\"message\": \"Error al procesar la solicitud.\", \"error\": \"Internal Server Error\"}"
+            "Code": 422,
+            "Description": "El parámetro examenId no es válido o no cumple con las reglas de validación",
+            "Body": "{\"message\": \"The given data was invalid.\", \"errors\": {\"examenId\": [\"The examen id must be an integer.\"]}}"
           }
         ],
         "Example": {
@@ -285,13 +285,13 @@
           }
         },
         "Summary": "Obtiene la información del usuario autenticado",
-        "Description": "Retorna los datos del usuario actualmente autenticado en la aplicación. Este endpoint requiere que el usuario esté autenticado mediante un token de acceso válido. Es comúnmente utilizado para obtener el perfil del usuario después del inicio de sesión o para verificar la sesión activa.",
+        "Description": "Retorna los datos del perfil del usuario actualmente autenticado. Este endpoint requiere que el usuario haya iniciado sesión y disponga de un token de autenticación válido. Es comúnmente utilizado para obtener información básica del usuario como nombre, correo electrónico y otros atributos del perfil. Dependiendo de la configuración del sistema, puede incluir roles, permisos y relaciones asociadas al usuario.",
         "Parameters": null,
         "Responses": [
           {
             "Code": 200,
-            "Description": "Solicitud exitosa. Retorna el objeto del usuario autenticado con sus datos de perfil.",
-            "Body": "{\"id\": 1, \"name\": \"Juan Pérez\", \"email\": \"juan.perez@example.com\", \"email_verified_at\": \"2024-01-15T10:30:00.000000Z\", \"created_at\": \"2024-01-01T00:00:00.000000Z\", \"updated_at\": \"2024-01-15T10:30:00.000000Z\"}"
+            "Description": "Solicitud exitosa. Retorna el objeto del usuario autenticado con sus atributos de perfil.",
+            "Body": "{\"id\": 1, \"name\": \"Juan Pérez\", \"email\": \"juan.perez@example.com\", \"email_verified_at\": \"2024-01-15T10:30:00.000000Z\", \"created_at\": \"2024-01-01T08:00:00.000000Z\", \"updated_at\": \"2024-01-15T10:30:00.000000Z\"}"
           },
           {
             "Code": 401,
@@ -300,8 +300,13 @@
           },
           {
             "Code": 403,
-            "Description": "No autorizado. El usuario no tiene permisos suficientes para acceder a este recurso.",
+            "Description": "No autorizado. El usuario autenticado no tiene permisos suficientes para acceder a este recurso.",
             "Body": "{\"message\": \"This action is unauthorized.\"}"
+          },
+          {
+            "Code": 500,
+            "Description": "Error interno del servidor. Ocurrió un problema inesperado al procesar la solicitud.",
+            "Body": "{\"message\": \"Server Error\"}"
           }
         ],
         "Example": {
@@ -332,7 +337,7 @@
           }
         },
         "Summary": "Crear un nuevo ítem en el catálogo",
-        "Description": "Este endpoint permite crear y almacenar un nuevo ítem en el catálogo del sistema. Recibe los datos del ítem mediante una solicitud POST, los valida y los persiste en la base de datos. En caso de éxito, retorna el ítem recién creado con su identificador asignado. Si los datos no cumplen con las reglas de validación, se retorna un error con los detalles correspondientes.",
+        "Description": "Este endpoint permite crear y almacenar un nuevo ítem en el catálogo del sistema. Recibe los datos del ítem mediante una solicitud POST, los valida y los persiste en la base de datos. Retorna el ítem creado junto con un mensaje de confirmación. Si la validación falla, se retornan los errores correspondientes.",
         "Parameters": [
           {
             "Name": "nombre",
@@ -350,7 +355,7 @@
           },
           {
             "Name": "precio",
-            "Type": "string",
+            "Type": "integer",
             "Required": true,
             "Rules": "required|numeric|min:0",
             "Description": "Precio del ítem en el catálogo"
@@ -366,50 +371,43 @@
             "Name": "imagen",
             "Type": "file",
             "Required": false,
-            "Rules": "nullable|image|mimes:jpeg,png,jpg,gif|max:2048",
-            "Description": "Imagen representativa del ítem del catálogo (máximo 2MB)"
+            "Rules": "nullable|file|image|mimes:jpeg,png,jpg,gif|max:2048",
+            "Description": "Imagen representativa del ítem del catálogo"
           },
           {
             "Name": "activo",
             "Type": "boolean",
             "Required": false,
             "Rules": "nullable|boolean",
-            "Description": "Indica si el ítem está activo y disponible en el catálogo"
-          },
-          {
-            "Name": "codigo",
-            "Type": "string",
-            "Required": false,
-            "Rules": "nullable|string|unique:catalogo,codigo|max:100",
-            "Description": "Código único identificador del ítem dentro del catálogo"
+            "Description": "Indica si el ítem está activo y visible en el catálogo"
           },
           {
             "Name": "stock",
             "Type": "integer",
             "Required": false,
             "Rules": "nullable|integer|min:0",
-            "Description": "Cantidad disponible en inventario del ítem"
+            "Description": "Cantidad disponible del ítem en inventario"
           }
         ],
         "Responses": [
           {
             "Code": 201,
-            "Description": "El ítem fue creado exitosamente en el catálogo. Se retorna el objeto creado con todos sus atributos incluyendo el identificador generado.",
-            "Body": "{\"id\": 1, \"nombre\": \"Producto Ejemplo\", \"descripcion\": \"Descripción del producto\", \"precio\": \"99.99\", \"categoria_id\": 2, \"imagen\": \"storage/imagenes/producto.jpg\", \"activo\": true, \"codigo\": \"PROD-001\", \"stock\": 50, \"created_at\": \"2024-01-15T10:30:00.000000Z\", \"updated_at\": \"2024-01-15T10:30:00.000000Z\"}"
+            "Description": "Ítem creado exitosamente. Retorna el objeto del ítem recién creado junto con un mensaje de éxito.",
+            "Body": "{\"message\": \"Ítem creado exitosamente\", \"data\": {\"id\": 1, \"nombre\": \"Producto Ejemplo\", \"descripcion\": \"Descripción del producto\", \"precio\": 150.00, \"categoria_id\": 3, \"activo\": true, \"stock\": 100, \"imagen\": \"storage/imagenes/producto_ejemplo.jpg\", \"created_at\": \"2024-01-15T10:30:00.000000Z\", \"updated_at\": \"2024-01-15T10:30:00.000000Z\"}}"
           },
           {
             "Code": 422,
-            "Description": "Error de validación. Los datos proporcionados no cumplen con las reglas requeridas. Se retorna un objeto con los errores por campo.",
-            "Body": "{\"message\": \"The given data was invalid.\", \"errors\": {\"nombre\": [\"El campo nombre es obligatorio.\"], \"precio\": [\"El campo precio debe ser un valor numérico.\"], \"categoria_id\": [\"La categoría seleccionada no existe.\"]}}"
+            "Description": "Error de validación. Uno o más campos no cumplen con las reglas de validación requeridas.",
+            "Body": "{\"message\": \"The given data was invalid.\", \"errors\": {\"nombre\": [\"The nombre field is required.\"], \"precio\": [\"The precio field is required.\"], \"categoria_id\": [\"The selected categoria_id is invalid.\"]}}"
           },
           {
             "Code": 401,
-            "Description": "No autenticado. El token de acceso no fue proporcionado o es inválido.",
+            "Description": "No autenticado. El token de autenticación no fue proporcionado o es inválido.",
             "Body": "{\"message\": \"Unauthenticated.\"}"
           },
           {
             "Code": 403,
-            "Description": "No autorizado. El usuario autenticado no tiene permisos suficientes para crear ítems en el catálogo.",
+            "Description": "No autorizado. El usuario autenticado no tiene permisos para crear ítems en el catálogo.",
             "Body": "{\"message\": \"This action is unauthorized.\"}"
           },
           {
@@ -424,7 +422,7 @@
             "Authorization": "Bearer {token}",
             "Content-Type": "multipart/form-data"
           },
-          "Body": "{\"nombre\": \"Producto Ejemplo\", \"descripcion\": \"Este es un producto de ejemplo para el catálogo\", \"precio\": \"99.99\", \"categoria_id\": 2, \"activo\": true, \"codigo\": \"PROD-001\", \"stock\": 50}"
+          "Body": "{\"nombre\": \"Producto Ejemplo\", \"descripcion\": \"Descripción detallada del producto ejemplo\", \"precio\": 150.00, \"categoria_id\": 3, \"activo\": true, \"stock\": 100, \"imagen\": \"\u003carchivo_imagen.jpg\u003e\"}"
         }
       },
       "source_hash": "e3b0c44298fc1c14"
@@ -445,81 +443,81 @@
             "Description": ""
           }
         },
-        "Summary": "Crea un nuevo nodo en la estructura jerárquica (árbol) de un catálogo de examen",
-        "Description": "Este endpoint permite agregar un nuevo elemento a la estructura de árbol asociada a un examen específico del catálogo. Recibe el identificador del examen como parámetro de ruta y los datos del nodo a crear en el cuerpo de la solicitud. Es útil para construir la jerarquía de secciones, categorías o ítems que componen el examen. El nodo creado quedará vinculado al examen indicado por `examenId`.",
+        "Summary": "Crear un nuevo nodo en la estructura de árbol de un catálogo de examen",
+        "Description": "Este endpoint permite agregar un nuevo elemento (nodo) a la estructura jerárquica (árbol) asociada a un examen específico del catálogo. Se debe proporcionar el identificador del examen en la URL junto con los datos necesarios para definir el nodo dentro de la estructura. Es útil para construir o expandir la taxonomía o jerarquía de contenidos de un examen.",
         "Parameters": [
           {
             "Name": "examenId",
             "Type": "integer",
             "Required": true,
             "Rules": "required|integer|exists:examenes,id",
-            "Description": "Identificador único del examen en el catálogo al que se le agregará el nodo de estructura"
+            "Description": "Identificador único del examen en el catálogo al cual pertenece la estructura. Se pasa como parámetro de ruta en la URL."
           },
           {
             "Name": "nombre",
             "Type": "string",
             "Required": true,
             "Rules": "required|string|max:255",
-            "Description": "Nombre o etiqueta del nodo que se creará dentro de la estructura del examen"
+            "Description": "Nombre o etiqueta del nodo que se va a crear dentro de la estructura del examen."
           },
           {
             "Name": "parent_id",
             "Type": "integer",
             "Required": false,
             "Rules": "nullable|integer|exists:estructuras,id",
-            "Description": "Identificador del nodo padre al que pertenece este nuevo nodo. Si es nulo, se creará como nodo raíz"
+            "Description": "Identificador del nodo padre al que pertenece este nuevo nodo. Si se omite o es null, el nodo se creará como raíz de la estructura."
           },
           {
             "Name": "orden",
             "Type": "integer",
             "Required": false,
             "Rules": "nullable|integer|min:0",
-            "Description": "Posición u orden del nodo dentro de su nivel jerárquico"
-          },
-          {
-            "Name": "tipo",
-            "Type": "string",
-            "Required": false,
-            "Rules": "nullable|string|in:seccion,categoria,item",
-            "Description": "Tipo de nodo dentro de la estructura jerárquica del examen (por ejemplo: seccion, categoria, item)"
+            "Description": "Posición u orden del nodo dentro de su nivel jerárquico. Permite controlar el orden de presentación entre nodos hermanos."
           },
           {
             "Name": "descripcion",
             "Type": "string",
             "Required": false,
             "Rules": "nullable|string|max:1000",
-            "Description": "Descripción opcional del nodo de estructura"
+            "Description": "Descripción opcional del nodo dentro de la estructura del examen."
+          },
+          {
+            "Name": "tipo",
+            "Type": "string",
+            "Required": false,
+            "Rules": "nullable|string|in:seccion,categoria,tema,subtema",
+            "Description": "Tipo de nodo dentro de la jerarquía del catálogo, por ejemplo: seccion, categoria, tema o subtema."
           }
         ],
         "Responses": [
           {
             "Code": 201,
-            "Description": "El nodo fue creado exitosamente en la estructura del examen",
-            "Body": "{\"id\": 45, \"examen_id\": 12, \"parent_id\": null, \"nombre\": \"Sección I\", \"tipo\": \"seccion\", \"orden\": 1, \"descripcion\": \"Primera sección del examen\", \"created_at\": \"2024-06-15T10:30:00.000000Z\", \"updated_at\": \"2024-06-15T10:30:00.000000Z\"}"
+            "Description": "El nodo fue creado exitosamente en la estructura del examen. Se retorna el objeto del nodo recién creado.",
+            "Body": "{\"id\": 45, \"examen_id\": 12, \"parent_id\": null, \"nombre\": \"Sección I\", \"descripcion\": \"Primera sección del examen\", \"tipo\": \"seccion\", \"orden\": 1, \"created_at\": \"2024-06-01T10:30:00.000000Z\", \"updated_at\": \"2024-06-01T10:30:00.000000Z\"}"
           },
           {
             "Code": 422,
-            "Description": "Error de validación: los datos enviados no cumplen con las reglas requeridas",
-            "Body": "{\"message\": \"The given data was invalid.\", \"errors\": {\"nombre\": [\"The nombre field is required.\"], \"parent_id\": [\"The selected parent_id is invalid.\"]}}"
+            "Description": "Error de validación. Los datos proporcionados no cumplen con las reglas requeridas. Se retornan los mensajes de error por campo.",
+            "Body": "{\"message\": \"The given data was invalid.\", \"errors\": {\"nombre\": [\"El campo nombre es obligatorio.\"], \"parent_id\": [\"El parent_id seleccionado no es válido.\"]}}"
           },
           {
             "Code": 404,
-            "Description": "El examen especificado en examenId no fue encontrado en el catálogo",
+            "Description": "El examen con el identificador proporcionado no existe en el catálogo.",
             "Body": "{\"message\": \"No query results for model [Examen] 99\"}"
           },
           {
             "Code": 401,
-            "Description": "No autenticado: el token de acceso es inválido o no fue proporcionado",
+            "Description": "No autenticado. El token de acceso no fue proporcionado o es inválido.",
             "Body": "{\"message\": \"Unauthenticated.\"}"
           },
           {
             "Code": 403,
-            "Description": "No autorizado: el usuario autenticado no tiene permisos para modificar la estructura de este examen",
+            "Description": "No autorizado. El usuario autenticado no tiene permisos para modificar la estructura de este examen.",
             "Body": "{\"message\": \"This action is unauthorized.\"}"
           },
           {
             "Code": 500,
-            "Description": "Error interno del servidor al intentar crear el nodo de estructura",
+            "Description": "Error interno del servidor al intentar crear el nodo en la estructura.",
             "Body": "{\"message\": \"Server Error\"}"
           }
         ],
@@ -529,7 +527,7 @@
             "Authorization": "Bearer {token}",
             "Content-Type": "application/json"
           },
-          "Body": "{\"nombre\": \"Sección I\", \"parent_id\": null, \"orden\": 1, \"tipo\": \"seccion\", \"descripcion\": \"Primera sección del examen de diagnóstico\"}"
+          "Body": "{\"nombre\": \"Sección I\", \"parent_id\": null, \"orden\": 1, \"descripcion\": \"Primera sección del examen de matemáticas\", \"tipo\": \"seccion\"}"
         }
       },
       "source_hash": "e3b0c44298fc1c14"
@@ -550,15 +548,15 @@
             "Description": ""
           }
         },
-        "Summary": "Actualiza un nodo de la estructura de un examen en el catálogo",
-        "Description": "Este endpoint permite actualizar un elemento específico dentro de la estructura jerárquica (árbol) de un examen en el catálogo. Recibe el identificador del examen y el identificador del nodo de estructura a modificar. Permite editar las propiedades del nodo como nombre, descripción, orden u otros atributos configurables de la estructura del examen. Si el examen o el nodo de estructura no existen, se retorna un error 404. Se requiere autenticación para acceder a este recurso.",
+        "Summary": "Actualizar un nodo de estructura de examen en el catálogo",
+        "Description": "Actualiza los datos de un nodo específico dentro de la estructura jerárquica de un examen en el catálogo. Permite modificar las propiedades de un elemento de la estructura (sección, subsección, ítem, etc.) identificado por su ID dentro del examen correspondiente. Este endpoint opera sobre la estructura en árbol del examen, permitiendo mantener actualizada la organización y contenido del catálogo.",
         "Parameters": [
           {
             "Name": "examenId",
             "Type": "integer",
             "Required": true,
             "Rules": "required|integer|exists:examenes,id",
-            "Description": "Identificador único del examen al que pertenece la estructura a actualizar"
+            "Description": "Identificador único del examen en el catálogo al que pertenece la estructura"
           },
           {
             "Name": "estructuraExamenId",
@@ -571,29 +569,36 @@
             "Name": "nombre",
             "Type": "string",
             "Required": false,
-            "Rules": "sometimes|required|string|max:255",
+            "Rules": "sometimes|string|max:255",
             "Description": "Nombre o título del nodo de estructura del examen"
           },
           {
             "Name": "descripcion",
             "Type": "string",
             "Required": false,
-            "Rules": "sometimes|nullable|string|max:1000",
-            "Description": "Descripción detallada del nodo de estructura del examen"
+            "Rules": "sometimes|nullable|string",
+            "Description": "Descripción detallada del nodo de estructura"
           },
           {
             "Name": "orden",
             "Type": "integer",
             "Required": false,
             "Rules": "sometimes|integer|min:0",
-            "Description": "Posición u orden del nodo dentro del árbol de estructura del examen"
+            "Description": "Posición u orden del nodo dentro de su nivel jerárquico en la estructura del examen"
           },
           {
             "Name": "parent_id",
             "Type": "integer",
             "Required": false,
             "Rules": "sometimes|nullable|integer|exists:estructura_examenes,id",
-            "Description": "Identificador del nodo padre en la jerarquía del árbol. Si es null, el nodo se considera raíz"
+            "Description": "Identificador del nodo padre en la jerarquía del árbol de estructura; null si es un nodo raíz"
+          },
+          {
+            "Name": "tipo",
+            "Type": "string",
+            "Required": false,
+            "Rules": "sometimes|string|in:seccion,subseccion,item,pregunta",
+            "Description": "Tipo de nodo dentro de la estructura del examen (seccion, subseccion, item, pregunta)"
           },
           {
             "Name": "activo",
@@ -601,38 +606,45 @@
             "Required": false,
             "Rules": "sometimes|boolean",
             "Description": "Indica si el nodo de estructura está activo o inactivo dentro del catálogo"
+          },
+          {
+            "Name": "metadata",
+            "Type": "array",
+            "Required": false,
+            "Rules": "sometimes|nullable|array",
+            "Description": "Datos adicionales o atributos extendidos del nodo de estructura en formato clave-valor"
           }
         ],
         "Responses": [
           {
             "Code": 200,
-            "Description": "El nodo de estructura del examen fue actualizado exitosamente. Retorna los datos actualizados del nodo.",
-            "Body": "{\"success\": true, \"message\": \"Estructura del examen actualizada correctamente\", \"data\": {\"id\": 10, \"examen_id\": 3, \"parent_id\": 2, \"nombre\": \"Sección Actualizada\", \"descripcion\": \"Descripción del nodo actualizado\", \"orden\": 1, \"activo\": true, \"created_at\": \"2024-01-15T10:00:00.000000Z\", \"updated_at\": \"2024-06-10T14:35:00.000000Z\"}}"
+            "Description": "El nodo de estructura del examen fue actualizado exitosamente; retorna el objeto actualizado",
+            "Body": "{\"success\": true, \"message\": \"Estructura del examen actualizada correctamente\", \"data\": {\"id\": 15, \"examen_id\": 3, \"parent_id\": 7, \"nombre\": \"Sección Actualizada\", \"descripcion\": \"Descripción de la sección actualizada\", \"tipo\": \"seccion\", \"orden\": 2, \"activo\": true, \"metadata\": {}, \"created_at\": \"2024-01-10T10:00:00Z\", \"updated_at\": \"2024-06-15T14:30:00Z\"}}"
           },
           {
             "Code": 404,
-            "Description": "El examen o el nodo de estructura especificado no fue encontrado en el catálogo.",
-            "Body": "{\"success\": false, \"message\": \"Recurso no encontrado\", \"errors\": {\"detail\": \"El examen o la estructura solicitada no existe\"}}"
+            "Description": "No se encontró el examen o el nodo de estructura con los IDs proporcionados",
+            "Body": "{\"success\": false, \"message\": \"Recurso no encontrado\", \"errors\": {\"examen\": \"El examen con el ID especificado no existe\"}}"
           },
           {
             "Code": 422,
-            "Description": "Los datos proporcionados no pasaron las validaciones requeridas.",
-            "Body": "{\"success\": false, \"message\": \"Error de validación\", \"errors\": {\"nombre\": [\"El campo nombre no puede superar los 255 caracteres.\"], \"parent_id\": [\"El parent_id seleccionado no existe en la base de datos.\"]}}"
-          },
-          {
-            "Code": 401,
-            "Description": "El usuario no está autenticado. Se requiere un token de acceso válido.",
-            "Body": "{\"success\": false, \"message\": \"No autenticado\", \"errors\": {\"detail\": \"Token de autenticación no proporcionado o inválido\"}}"
+            "Description": "Los datos enviados no superaron la validación; se retornan los errores de validación por campo",
+            "Body": "{\"success\": false, \"message\": \"Los datos proporcionados no son válidos\", \"errors\": {\"nombre\": [\"El campo nombre no puede exceder 255 caracteres\"], \"tipo\": [\"El tipo seleccionado no es válido\"]}}"
           },
           {
             "Code": 403,
-            "Description": "El usuario autenticado no tiene permisos suficientes para modificar la estructura del catálogo.",
-            "Body": "{\"success\": false, \"message\": \"Acceso denegado\", \"errors\": {\"detail\": \"No tienes permisos para realizar esta acción\"}}"
+            "Description": "El usuario autenticado no tiene permisos para modificar la estructura del examen en el catálogo",
+            "Body": "{\"success\": false, \"message\": \"No tienes permisos para realizar esta acción\"}"
+          },
+          {
+            "Code": 401,
+            "Description": "El usuario no está autenticado o el token de acceso es inválido o ha expirado",
+            "Body": "{\"success\": false, \"message\": \"No autenticado. Por favor, inicia sesión\"}"
           },
           {
             "Code": 500,
-            "Description": "Error interno del servidor al intentar procesar la actualización.",
-            "Body": "{\"success\": false, \"message\": \"Error interno del servidor\", \"errors\": {\"detail\": \"Ocurrió un error inesperado, intente nuevamente más tarde\"}}"
+            "Description": "Error interno del servidor al intentar actualizar la estructura del examen",
+            "Body": "{\"success\": false, \"message\": \"Error interno del servidor\", \"errors\": {}}"
           }
         ],
         "Example": {
@@ -641,7 +653,7 @@
             "Authorization": "Bearer {token}",
             "Content-Type": "application/json"
           },
-          "Body": "{\"nombre\": \"Sección Actualizada\", \"descripcion\": \"Descripción del nodo actualizado\", \"orden\": 1, \"parent_id\": 2, \"activo\": true}"
+          "Body": "{\"nombre\": \"Sección Actualizada\", \"descripcion\": \"Descripción detallada de la sección\", \"tipo\": \"seccion\", \"orden\": 2, \"parent_id\": 7, \"activo\": true, \"metadata\": {\"color\": \"blue\", \"icono\": \"book\"}}"
         }
       },
       "source_hash": "e3b0c44298fc1c14"
@@ -662,89 +674,89 @@
             "Description": ""
           }
         },
-        "Summary": "Actualizar un ítem del catálogo existente",
-        "Description": "Actualiza los datos de un ítem específico del catálogo identificado por su ID. Se aplican las validaciones correspondientes a los campos enviados. Si el ítem no existe, se retorna un error 404. La operación reemplaza los datos del recurso con la información proporcionada en la solicitud.",
+        "Summary": "Actualiza un ítem existente en el catálogo",
+        "Description": "Este endpoint permite actualizar la información de un ítem específico del catálogo mediante su identificador. Se utiliza el método HTTP PUT para reemplazar o modificar los datos del recurso indicado en la ruta. El sistema valida los datos enviados antes de realizar la actualización en la base de datos. Si el ítem no existe, se retorna un error 404. En caso de éxito, se devuelve el ítem actualizado con sus nuevos valores.",
         "Parameters": [
           {
             "Name": "item",
             "Type": "integer",
             "Required": true,
-            "Rules": "required|integer|exists:catalogo,id",
-            "Description": "ID único del ítem del catálogo que se desea actualizar (parámetro de ruta)"
+            "Rules": "exists:catalogo,id",
+            "Description": "Identificador único del ítem del catálogo que se desea actualizar. Se pasa como parámetro en la URL."
           },
           {
             "Name": "nombre",
             "Type": "string",
             "Required": true,
             "Rules": "required|string|max:255",
-            "Description": "Nombre del ítem del catálogo"
+            "Description": "Nombre o título del ítem del catálogo."
           },
           {
             "Name": "descripcion",
             "Type": "string",
             "Required": false,
-            "Rules": "nullable|string|max:1000",
-            "Description": "Descripción detallada del ítem del catálogo"
+            "Rules": "nullable|string",
+            "Description": "Descripción detallada del ítem del catálogo."
           },
           {
             "Name": "precio",
             "Type": "integer",
-            "Required": true,
-            "Rules": "required|numeric|min:0",
-            "Description": "Precio del ítem en el catálogo"
+            "Required": false,
+            "Rules": "nullable|numeric|min:0",
+            "Description": "Precio del ítem en el catálogo. Debe ser un valor numérico mayor o igual a 0."
           },
           {
             "Name": "categoria_id",
             "Type": "integer",
             "Required": false,
             "Rules": "nullable|integer|exists:categorias,id",
-            "Description": "ID de la categoría a la que pertenece el ítem"
+            "Description": "Identificador de la categoría a la que pertenece el ítem. Debe existir en la tabla de categorías."
           },
           {
             "Name": "activo",
             "Type": "boolean",
             "Required": false,
             "Rules": "nullable|boolean",
-            "Description": "Indica si el ítem está activo y disponible en el catálogo"
+            "Description": "Indica si el ítem está activo o inactivo en el catálogo."
           },
           {
             "Name": "imagen",
             "Type": "file",
             "Required": false,
             "Rules": "nullable|image|mimes:jpeg,png,jpg,gif|max:2048",
-            "Description": "Imagen representativa del ítem del catálogo"
+            "Description": "Imagen representativa del ítem del catálogo. Se aceptan formatos jpeg, png, jpg y gif con un tamaño máximo de 2MB."
           }
         ],
         "Responses": [
           {
             "Code": 200,
-            "Description": "El ítem del catálogo fue actualizado exitosamente. Retorna el recurso actualizado.",
-            "Body": "{\"success\": true, \"message\": \"Ítem actualizado correctamente\", \"data\": {\"id\": 1, \"nombre\": \"Producto Ejemplo\", \"descripcion\": \"Descripción actualizada del producto\", \"precio\": 150.00, \"categoria_id\": 3, \"activo\": true, \"imagen\": \"storage/imagenes/producto-ejemplo.jpg\", \"created_at\": \"2024-01-15T10:00:00.000000Z\", \"updated_at\": \"2024-06-20T15:30:00.000000Z\"}}"
-          },
-          {
-            "Code": 422,
-            "Description": "Error de validación. Uno o más campos enviados no cumplen con las reglas de validación requeridas.",
-            "Body": "{\"message\": \"The given data was invalid.\", \"errors\": {\"nombre\": [\"El campo nombre es obligatorio.\"], \"precio\": [\"El campo precio debe ser un número mayor o igual a 0.\"]}}"
+            "Description": "El ítem del catálogo fue actualizado exitosamente. Se retorna el objeto actualizado.",
+            "Body": "{\"success\": true, \"message\": \"Ítem actualizado correctamente\", \"data\": {\"id\": 1, \"nombre\": \"Producto Ejemplo\", \"descripcion\": \"Descripción actualizada del producto\", \"precio\": 150.00, \"categoria_id\": 3, \"activo\": true, \"imagen\": \"storage/imagenes/producto.jpg\", \"updated_at\": \"2024-06-01T12:00:00.000000Z\", \"created_at\": \"2024-01-15T08:30:00.000000Z\"}}"
           },
           {
             "Code": 404,
-            "Description": "El ítem del catálogo con el ID especificado no fue encontrado en la base de datos.",
-            "Body": "{\"success\": false, \"message\": \"Ítem no encontrado\"}"
+            "Description": "El ítem con el identificador proporcionado no existe en el catálogo.",
+            "Body": "{\"success\": false, \"message\": \"Ítem no encontrado\", \"data\": null}"
+          },
+          {
+            "Code": 422,
+            "Description": "Los datos enviados no superaron la validación. Se retornan los errores por campo.",
+            "Body": "{\"message\": \"The given data was invalid.\", \"errors\": {\"nombre\": [\"El campo nombre es obligatorio.\"], \"precio\": [\"El campo precio debe ser un número mayor o igual a 0.\"]}}"
           },
           {
             "Code": 401,
-            "Description": "No autenticado. El token de acceso no fue proporcionado o es inválido.",
+            "Description": "El usuario no está autenticado. Se requiere un token de acceso válido.",
             "Body": "{\"message\": \"Unauthenticated.\"}"
           },
           {
             "Code": 403,
-            "Description": "No autorizado. El usuario autenticado no tiene permisos para actualizar ítems del catálogo.",
-            "Body": "{\"message\": \"This action is unauthorized.\"}"
+            "Description": "El usuario autenticado no tiene permisos para actualizar ítems del catálogo.",
+            "Body": "{\"success\": false, \"message\": \"No tienes permisos para realizar esta acción.\"}"
           },
           {
             "Code": 500,
-            "Description": "Error interno del servidor al intentar actualizar el ítem del catálogo.",
-            "Body": "{\"success\": false, \"message\": \"Error interno del servidor\"}"
+            "Description": "Error interno del servidor al intentar actualizar el ítem.",
+            "Body": "{\"success\": false, \"message\": \"Error interno del servidor. Por favor, intente más tarde.\"}"
           }
         ],
         "Example": {
@@ -753,7 +765,7 @@
             "Authorization": "Bearer {token}",
             "Content-Type": "application/json"
           },
-          "Body": "{\"nombre\": \"Producto Ejemplo Actualizado\", \"descripcion\": \"Nueva descripción detallada del producto\", \"precio\": 199.99, \"categoria_id\": 3, \"activo\": true}"
+          "Body": "{\"nombre\": \"Producto Ejemplo Actualizado\", \"descripcion\": \"Nueva descripción del producto actualizado\", \"precio\": 199.99, \"categoria_id\": 3, \"activo\": true}"
         }
       },
       "source_hash": "e3b0c44298fc1c14"
