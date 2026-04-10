@@ -346,6 +346,7 @@ const htmlTemplate = `<!DOCTYPE html>
       transition: transform .25s ease;
     }
     nav.open { transform: translateX(0); }
+    .nav-header { padding-left: 60px; }
     main { padding: 64px 20px 40px; }
     .page-header { flex-direction: column; align-items: flex-start; gap: 16px; }
     .page-header h1 { font-size: 28px; }
