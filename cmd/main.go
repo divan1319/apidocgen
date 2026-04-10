@@ -10,6 +10,7 @@ import (
 	"strings"
 
 	"github.com/divan1319/apidocgen/internal/ai"
+	"github.com/divan1319/apidocgen/internal/cache"
 	"github.com/divan1319/apidocgen/internal/generator"
 	"github.com/divan1319/apidocgen/internal/parser/laravel"
 	"github.com/divan1319/apidocgen/pkg/models"
@@ -25,6 +26,8 @@ func main() {
 	title := genCmd.String("title", "API Documentation", "Documentation title")
 	apiKey := genCmd.String("api-key", "", "Anthropic API key (or set ANTHROPIC_API_KEY env var)")
 	docLang := genCmd.String("doc-lang", "", "Documentation language: en (English) or es (Español). Prompted interactively if not set.")
+	cacheFile := genCmd.String("cache", "apidocgen-cache.json", "Path to the endpoint documentation cache file. Use --cache=\"\" to disable.")
+	forceRegen := genCmd.Bool("force", false, "Ignore cache and re-document all endpoints with Claude.")
 
 	if len(os.Args) < 2 {
 		printUsage()
@@ -34,7 +37,7 @@ func main() {
 	switch os.Args[1] {
 	case "generate":
 		genCmd.Parse(os.Args[2:])
-		runGenerate(*lang, *routes, *root, *output, *title, *apiKey, *docLang)
+		runGenerate(*lang, *routes, *root, *output, *title, *apiKey, *docLang, *cacheFile, *forceRegen)
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -44,7 +47,7 @@ func main() {
 	}
 }
 
-func runGenerate(lang, routes, root, output, title, apiKey, docLang string) {
+func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile string, forceRegen bool) {
 	if apiKey == "" {
 		apiKey = os.Getenv("ANTHROPIC_API_KEY")
 	}
@@ -59,13 +62,13 @@ func runGenerate(lang, routes, root, output, title, apiKey, docLang string) {
 
 	switch lang {
 	case "laravel":
-		runLaravel(files, root, output, title, apiKey, docLang)
+		runLaravel(files, root, output, title, apiKey, docLang, cacheFile, forceRegen)
 	default:
 		fatal("unsupported language: %s (supported: laravel)", lang)
 	}
 }
 
-func runLaravel(files []string, root, output, title, apiKey, docLang string) {
+func runLaravel(files []string, root, output, title, apiKey, docLang, cacheFile string, forceRegen bool) {
 	p := laravel.New(root)
 
 	// ── Step 1: resolve all included files ───────────────────────────────────
@@ -94,7 +97,24 @@ func runLaravel(files []string, root, output, title, apiKey, docLang string) {
 		}
 	}
 
-	// ── Step 3: prompt user to name each section ──────────────────────────────
+	// ── Step 3: load cache ────────────────────────────────────────────────────
+	var docCache *cache.Cache
+	if cacheFile != "" {
+		docCache, err = cache.Load(cacheFile)
+		if err != nil {
+			fatal("loading cache: %v", err)
+		}
+		if docCache.Len() > 0 {
+			fmt.Printf("\n→ Cache loaded: %d endpoint(s) already documented (%s)\n", docCache.Len(), cacheFile)
+		} else {
+			fmt.Printf("\n→ Cache: starting fresh (%s)\n", cacheFile)
+		}
+		if forceRegen {
+			fmt.Println("  --force: ignoring cache, all endpoints will be re-documented.")
+		}
+	}
+
+	// ── Step 4: prompt user to name each section ──────────────────────────────
 	fmt.Println("\n→ Name each section (press Enter to use the suggested name):")
 	sectionNames := make(map[string]string, len(allFiles))
 
@@ -109,14 +129,13 @@ func runLaravel(files []string, root, output, title, apiKey, docLang string) {
 		sectionNames[f] = input
 	}
 
-	// ── Step 4: parse sections ────────────────────────────────────────────────
+	// ── Step 5: parse sections ────────────────────────────────────────────────
 	fmt.Println("\n→ Parsing routes...")
 	sections, err := p.ParseSections(allFiles)
 	if err != nil {
 		fatal("parsing routes: %v", err)
 	}
 
-	// Apply names from CLI prompts
 	for i := range sections {
 		if name, ok := sectionNames[sections[i].FilePath]; ok {
 			sections[i].Name = name
@@ -129,13 +148,15 @@ func runLaravel(files []string, root, output, title, apiKey, docLang string) {
 	}
 	fmt.Printf("  Found %d section(s), %d endpoint(s) total\n", len(sections), totalEndpoints)
 
-	// ── Step 5: document with AI ──────────────────────────────────────────────
+	// ── Step 6: document with AI (using cache when available) ────────────────
 	fmt.Println("\n→ Generating documentation with Claude...")
 	client, err := ai.New(apiKey, docLang)
 	if err != nil {
 		fatal("initializing AI client: %v", err)
 	}
+
 	var sectionDocs []models.SectionDoc
+	hits, misses := 0, 0
 
 	for _, section := range sections {
 		fmt.Printf("\n  [%s]\n", section.Name)
@@ -146,19 +167,42 @@ func runLaravel(files []string, root, output, title, apiKey, docLang string) {
 		}
 
 		for i, ep := range section.Endpoints {
-			fmt.Printf("    [%d/%d] %s %s\n", i+1, len(section.Endpoints), ep.Method, ep.URI)
+			// Check cache first (unless --force)
+			if docCache != nil && !forceRegen {
+				if cached, ok := docCache.Get(ep); ok {
+					fmt.Printf("    [%d/%d] %s %s  (cached)\n", i+1, len(section.Endpoints), ep.Method, ep.URI)
+					sd.Docs = append(sd.Docs, *cached)
+					hits++
+					continue
+				}
+			}
+
+			fmt.Printf("    [%d/%d] %s %s  (documenting...)\n", i+1, len(section.Endpoints), ep.Method, ep.URI)
 			doc, err := client.DocumentEndpoint(ep)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "    warning: failed to document %s %s: %v\n", ep.Method, ep.URI, err)
 				continue
 			}
 			sd.Docs = append(sd.Docs, *doc)
+			misses++
+
+			// Save to cache immediately after each successful call
+			if docCache != nil {
+				docCache.Set(ep, *doc)
+				if saveErr := docCache.Save(); saveErr != nil {
+					fmt.Fprintf(os.Stderr, "    warning: could not save cache: %v\n", saveErr)
+				}
+			}
 		}
 
 		sectionDocs = append(sectionDocs, sd)
 	}
 
-	// ── Step 6: generate HTML ─────────────────────────────────────────────────
+	if docCache != nil {
+		fmt.Printf("\n  Cache summary: %d from cache, %d newly documented\n", hits, misses)
+	}
+
+	// ── Step 7: generate HTML ─────────────────────────────────────────────────
 	fmt.Printf("\n→ Writing %s...\n", output)
 	gen := generator.New()
 	if err := gen.GenerateSections(sectionDocs, title, output); err != nil {
@@ -219,11 +263,16 @@ FLAGS:
   --api-key   Anthropic API key (or use ANTHROPIC_API_KEY env var)
   --doc-lang  Documentation language: en (English) or es (Español)
               If not set, you will be prompted interactively.
+  --cache     Path to cache file (default: apidocgen-cache.json)
+              Already-documented endpoints are reused automatically.
+              Use --cache="" to disable caching entirely.
+  --force     Ignore cache and re-document all endpoints with Claude.
 
 EXAMPLES:
   apidocgen generate --routes routes/api.php --root /path/to/laravel-project
   apidocgen generate --routes routes/api.php,routes/web.php --title "My API v2"
   apidocgen generate --routes routes/api.php --doc-lang es
+  apidocgen generate --routes routes/api.php --force
   ANTHROPIC_API_KEY=sk-... apidocgen generate --routes routes/api.php`)
 }
 
