@@ -28,6 +28,8 @@ var includePattern = regexp.MustCompile(
 	`(?:include|require)(?:_once)?\s*['"]([^'"]+)['"]`,
 )
 
+// resolveIncludes returns a flat list: first the file itself, then any includes
+// it references (recursively). The main entry file is always first.
 func (p *LaravelParser) resolveIncludes(filePath string) ([]string, error) {
 	content, err := os.ReadFile(filePath)
 	if err != nil {
@@ -49,29 +51,64 @@ func (p *LaravelParser) resolveIncludes(filePath string) ([]string, error) {
 	return files, nil
 }
 
-// ── Entry point ──────────────────────────────────────────────────────────────
-
-func (p *LaravelParser) Parse(files []string) ([]models.Endpoint, error) {
-	var allFiles []string
+// ResolveIncludes returns the ordered list of files that will be parsed,
+// so the CLI can prompt the user to name each section before parsing starts.
+func (p *LaravelParser) ResolveIncludes(files []string) ([]string, error) {
+	var all []string
+	seen := map[string]bool{}
 	for _, f := range files {
 		resolved, err := p.resolveIncludes(f)
 		if err != nil {
 			return nil, fmt.Errorf("resolving includes for %s: %w", f, err)
 		}
-		allFiles = append(allFiles, resolved...)
+		for _, r := range resolved {
+			if !seen[r] {
+				seen[r] = true
+				all = append(all, r)
+			}
+		}
 	}
+	return all, nil
+}
 
-	var endpoints []models.Endpoint
-	for _, f := range allFiles {
+// ── Entry point ──────────────────────────────────────────────────────────────
+
+// ParseSections parses each file independently and returns one RouteSection per file.
+// The caller is responsible for setting each section's Name (from CLI prompt).
+func (p *LaravelParser) ParseSections(files []string) ([]models.RouteSection, error) {
+	var sections []models.RouteSection
+
+	for _, f := range files {
 		content, err := os.ReadFile(f)
 		if err != nil {
 			return nil, fmt.Errorf("reading %s: %w", f, err)
 		}
-		parsed := p.parseRouteFile(string(content))
-		endpoints = append(endpoints, parsed...)
+
+		endpoints := p.parseRouteFile(string(content))
+
+		// Skip files with no routes (e.g. the main api.php that only has includes)
+		if len(endpoints) == 0 {
+			continue
+		}
+
+		sections = append(sections, models.RouteSection{
+			FilePath:  f,
+			Version:   inferVersion(f),
+			Endpoints: endpoints,
+		})
 	}
 
-	return endpoints, nil
+	return sections, nil
+}
+
+// inferVersion tries to detect v1/v2/vN from a file path.
+func inferVersion(path string) string {
+	re := regexp.MustCompile(`(?i)[/\\](v\d+)[/\\]`)
+	m := re.FindStringSubmatch(path)
+	if m != nil {
+		return strings.ToLower(m[1])
+	}
+	return ""
 }
 
 // ── Group context (inherited as we descend) ───────────────────────────────────
@@ -648,8 +685,7 @@ func stripComments(s string) string {
 	return s
 }
 
-// joinPath joins two URI segments (Laravel prefixes/URIs may include leading slashes;
-// nested groups must not accumulate extra slashes).
+// joinPath joins two URI segments
 func joinPath(a, b string) string {
 	a = strings.Trim(a, "/")
 	b = strings.Trim(b, "/")

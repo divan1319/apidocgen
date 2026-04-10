@@ -1,5 +1,22 @@
 package models
 
+// RouteSection groups endpoints that come from the same source file (include).
+// Each include in api.php becomes one section in the HTML output.
+type RouteSection struct {
+	Name      string     // display name, confirmed or suggested via CLI
+	FilePath  string     // original file path (api/inscripcionRoute.php)
+	Version   string     // inferred version: "v1", "v2", "" if none
+	Endpoints []Endpoint
+}
+
+// SectionDoc is a RouteSection after its endpoints have been documented by AI.
+type SectionDoc struct {
+	Name     string
+	Version  string
+	FilePath string
+	Docs     []EndpointDoc
+}
+
 // Endpoint is the language-agnostic representation extracted by any parser.
 // The AI layer uses RawSource to infer what the parser couldn't determine statically.
 type Endpoint struct {

@@ -13,7 +13,7 @@ type HTMLGenerator struct{}
 
 func New() *HTMLGenerator { return &HTMLGenerator{} }
 
-func (g *HTMLGenerator) Generate(docs []models.EndpointDoc, title, outputPath string) error {
+func (g *HTMLGenerator) GenerateSections(sections []models.SectionDoc, title, outputPath string) error {
 	f, err := os.Create(outputPath)
 	if err != nil {
 		return fmt.Errorf("creating output file: %w", err)
@@ -28,14 +28,19 @@ func (g *HTMLGenerator) Generate(docs []models.EndpointDoc, title, outputPath st
 			r := strings.NewReplacer("/", "-", "{", "", "}", "")
 			return strings.Trim(r.Replace(s), "-")
 		},
+		"slugify": func(s string) string {
+			s = strings.ToLower(s)
+			re := strings.NewReplacer(" ", "-", "/", "-", ".", "-")
+			return re.Replace(s)
+		},
 	}).Parse(htmlTemplate)
 	if err != nil {
 		return fmt.Errorf("parsing template: %w", err)
 	}
 
 	return tmpl.Execute(f, map[string]any{
-		"Title": title,
-		"Docs":  docs,
+		"Title":    title,
+		"Sections": sections,
 	})
 }
 
@@ -85,405 +90,315 @@ const htmlTemplate = `<!DOCTYPE html>
     --text-muted: #6b6b80;
     --accent: #7c6af7;
     --accent-dim: rgba(124,106,247,0.12);
-
-    --get:    #22d3a5;
-    --get-bg: rgba(34,211,165,0.08);
-    --post:   #f97316;
-    --post-bg:rgba(249,115,22,0.08);
-    --put:    #eab308;
-    --put-bg: rgba(234,179,8,0.08);
-    --delete: #f43f5e;
-    --del-bg: rgba(244,63,94,0.08);
-
-    --success: #22d3a5;
-    --warn:    #f97316;
-    --danger:  #f43f5e;
-
+    --get:    #22d3a5; --get-bg: rgba(34,211,165,0.08);
+    --post:   #f97316; --post-bg:rgba(249,115,22,0.08);
+    --put:    #eab308; --put-bg: rgba(234,179,8,0.08);
+    --delete: #f43f5e; --del-bg: rgba(244,63,94,0.08);
+    --success:#22d3a5; --warn:#f97316; --danger:#f43f5e;
     --radius: 8px;
     --mono: 'DM Mono', monospace;
     --sans: 'Syne', sans-serif;
   }
-
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-
   html { scroll-behavior: smooth; }
-
   body {
     background: var(--bg);
     color: var(--text);
     font-family: var(--sans);
     display: grid;
-    grid-template-columns: 260px 1fr;
+    grid-template-columns: 280px 1fr;
     min-height: 100vh;
   }
 
   /* ── SIDEBAR ── */
   nav {
-    position: sticky;
-    top: 0;
-    height: 100vh;
+    position: sticky; top: 0; height: 100vh;
     overflow-y: auto;
     background: var(--surface);
     border-right: 1px solid var(--border);
-    padding: 32px 0;
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
+    padding: 24px 0;
+    display: flex; flex-direction: column; gap: 2px;
   }
+  .nav-header {
+    font-size: 13px; font-weight: 700; letter-spacing: .06em;
+    color: var(--text); padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border); margin-bottom: 8px;
+  }
+  .nav-header span { color: var(--accent); }
 
-  .nav-title {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .12em;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    padding: 0 24px 16px;
-    border-bottom: 1px solid var(--border);
-    margin-bottom: 8px;
+  /* Section group in sidebar */
+  .nav-section {
+    margin-bottom: 4px;
   }
+  .nav-section-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 20px;
+    cursor: pointer;
+    user-select: none;
+    color: var(--text);
+    font-size: 12px; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase;
+    transition: color .15s;
+  }
+  .nav-section-header:hover { color: var(--accent); }
+  .nav-section-header .version-tag {
+    font-size: 9px; padding: 1px 5px;
+    background: var(--accent-dim); color: var(--accent);
+    border-radius: 3px; font-family: var(--mono);
+  }
+  .nav-section-header .chevron {
+    margin-left: auto; transition: transform .2s;
+    color: var(--text-muted); font-size: 10px;
+  }
+  .nav-section.collapsed .chevron { transform: rotate(-90deg); }
+  .nav-section-items { overflow: hidden; }
+  .nav-section.collapsed .nav-section-items { display: none; }
 
   .nav-item {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 8px 24px;
-    text-decoration: none;
-    color: var(--text-muted);
-    font-size: 13px;
-    font-family: var(--mono);
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 20px 6px 28px;
+    text-decoration: none; color: var(--text-muted);
+    font-size: 12px; font-family: var(--mono);
     transition: color .15s, background .15s;
     border-left: 2px solid transparent;
+    cursor: pointer;
   }
-
-  .nav-item:hover {
-    color: var(--text);
-    background: var(--surface-2);
-    border-left-color: var(--accent);
-  }
-
+  .nav-item:hover { color: var(--text); background: var(--surface-2); border-left-color: var(--accent); }
+  .nav-item.active { color: var(--text); border-left-color: var(--accent); background: var(--accent-dim); }
   .nav-badge {
-    font-size: 10px;
-    font-weight: 500;
-    padding: 2px 6px;
-    border-radius: 4px;
-    flex-shrink: 0;
+    font-size: 9px; font-weight: 500; padding: 1px 5px;
+    border-radius: 3px; flex-shrink: 0;
   }
+  .nav-uri { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* ── MAIN ── */
-  main {
-    padding: 64px 80px;
-    max-width: 960px;
-  }
+  main { padding: 48px 64px; max-width: 980px; }
 
-  .page-header {
-    margin-bottom: 64px;
-  }
-
+  .page-header { margin-bottom: 48px; }
   .page-header h1 {
-    font-size: 42px;
-    font-weight: 800;
-    letter-spacing: -.02em;
+    font-size: 40px; font-weight: 800; letter-spacing: -.02em;
     background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    background-clip: text;
-    margin-bottom: 8px;
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; margin-bottom: 6px;
   }
+  .page-header p { color: var(--text-muted); font-size: 14px; }
 
-  .page-header p {
-    color: var(--text-muted);
-    font-size: 15px;
+  /* ── SECTION PAGE ── */
+  .section-page { display: none; }
+  .section-page.active { display: block; }
+
+  .section-title-bar {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 32px; padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
   }
+  .section-title-bar h2 { font-size: 24px; font-weight: 700; }
+  .section-version {
+    font-family: var(--mono); font-size: 11px;
+    padding: 3px 8px; border-radius: 5px;
+    background: var(--accent-dim); color: var(--accent);
+  }
+  .section-count { color: var(--text-muted); font-size: 13px; margin-left: auto; }
 
   /* ── ENDPOINT CARD ── */
   .endpoint {
-    background: var(--surface);
-    border: 1px solid var(--border);
-    border-radius: 12px;
-    margin-bottom: 24px;
-    overflow: hidden;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; margin-bottom: 16px; overflow: hidden;
     transition: border-color .2s;
   }
-
   .endpoint:hover { border-color: var(--accent); }
-
   .endpoint-header {
-    display: flex;
-    align-items: center;
-    gap: 16px;
-    padding: 20px 24px;
-    cursor: pointer;
-    user-select: none;
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px 20px; cursor: pointer; user-select: none;
   }
-
   .method-badge {
-    font-family: var(--mono);
-    font-size: 12px;
-    font-weight: 500;
-    padding: 4px 10px;
-    border-radius: 6px;
-    letter-spacing: .06em;
-    flex-shrink: 0;
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    padding: 3px 8px; border-radius: 5px; letter-spacing: .06em; flex-shrink: 0;
   }
-
   .method-get    { color: var(--get);    background: var(--get-bg); }
   .method-post   { color: var(--post);   background: var(--post-bg);}
   .method-put    { color: var(--put);    background: var(--put-bg); }
   .method-delete { color: var(--delete); background: var(--del-bg); }
-
-  .endpoint-uri {
-    font-family: var(--mono);
-    font-size: 15px;
-    color: var(--text);
-    flex: 1;
-  }
-
-  .endpoint-summary {
-    color: var(--text-muted);
-    font-size: 13px;
-  }
-
-  .endpoint-body {
-    border-top: 1px solid var(--border);
-    padding: 24px;
-    display: none;
-  }
-
+  .endpoint-uri  { font-family: var(--mono); font-size: 14px; color: var(--text); flex: 1; }
+  .endpoint-summary { color: var(--text-muted); font-size: 12px; text-align: right; }
+  .endpoint-body { border-top: 1px solid var(--border); padding: 20px; display: none; }
   .endpoint.open .endpoint-body { display: block; }
+  .endpoint-description { color: var(--text-muted); font-size: 13px; line-height: 1.7; margin-bottom: 24px; }
 
-  .endpoint-description {
-    color: var(--text-muted);
-    font-size: 14px;
-    line-height: 1.7;
-    margin-bottom: 28px;
+  /* ── SECTIONS ── */
+  .section { margin-bottom: 24px; }
+  .section-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
   }
-
-  /* ── SECTION ── */
-  .section {
-    margin-bottom: 28px;
-  }
-
-  .section-title {
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: .1em;
-    text-transform: uppercase;
-    color: var(--accent);
-    margin-bottom: 12px;
-  }
-
-  /* ── PARAMS TABLE ── */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 13px;
-  }
-
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
   th {
-    text-align: left;
-    padding: 8px 12px;
-    color: var(--text-muted);
-    font-weight: 500;
-    font-size: 11px;
-    letter-spacing: .08em;
-    text-transform: uppercase;
-    border-bottom: 1px solid var(--border);
+    text-align: left; padding: 7px 10px; color: var(--text-muted);
+    font-weight: 500; font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; border-bottom: 1px solid var(--border);
   }
-
-  td {
-    padding: 10px 12px;
-    border-bottom: 1px solid var(--border);
-    vertical-align: top;
-    line-height: 1.5;
-  }
-
+  td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; line-height: 1.5; }
   tr:last-child td { border-bottom: none; }
-
   .param-name { font-family: var(--mono); color: var(--text); }
-  .param-type { font-family: var(--mono); color: var(--accent); font-size: 12px; }
+  .param-type { font-family: var(--mono); color: var(--accent); font-size: 11px; }
   .param-desc { color: var(--text-muted); }
-
-  .badge-required {
-    background: rgba(244,63,94,.12);
-    color: var(--danger);
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-weight: 500;
-  }
-
-  .badge-optional {
-    background: var(--surface-2);
-    color: var(--text-muted);
-    font-size: 10px;
-    padding: 2px 6px;
-    border-radius: 4px;
-    font-weight: 500;
-  }
-
-  /* ── RESPONSES ── */
-  .response-item {
-    background: var(--surface-2);
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    margin-bottom: 10px;
-    overflow: hidden;
-  }
-
-  .response-header {
-    display: flex;
-    align-items: center;
-    gap: 12px;
-    padding: 10px 16px;
-  }
-
-  .status-badge {
-    font-family: var(--mono);
-    font-size: 13px;
-    font-weight: 500;
-  }
-
-  .status-success     { color: var(--success); }
-  .status-client-error{ color: var(--warn); }
-  .status-server-error{ color: var(--danger); }
-  .status-default     { color: var(--text-muted); }
-
+  .badge-required { background: rgba(244,63,94,.12); color: var(--danger); font-size: 10px; padding: 2px 5px; border-radius: 3px; }
+  .badge-optional { background: var(--surface-2); color: var(--text-muted); font-size: 10px; padding: 2px 5px; border-radius: 3px; }
+  .response-item { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; }
+  .response-header { display: flex; align-items: center; gap: 10px; padding: 9px 14px; }
+  .status-badge { font-family: var(--mono); font-size: 13px; font-weight: 500; }
+  .status-success { color: var(--success); }
+  .status-client-error { color: var(--warn); }
+  .status-server-error { color: var(--danger); }
   .response-desc { color: var(--text-muted); font-size: 13px; }
-
-  /* ── CODE BLOCK ── */
-  pre {
-    background: #070710;
-    border: 1px solid var(--border);
-    border-radius: var(--radius);
-    padding: 16px;
-    overflow-x: auto;
-    font-family: var(--mono);
-    font-size: 12.5px;
-    line-height: 1.7;
-    color: #a5b4fc;
-  }
-
-  .middleware-tags { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
-
-  .mw-tag {
-    background: var(--accent-dim);
-    color: var(--accent);
-    font-family: var(--mono);
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 4px;
-  }
-
-  /* ── SCROLLBAR ── */
-  ::-webkit-scrollbar { width: 6px; }
-  ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+  pre { background: #070710; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.7; color: #a5b4fc; }
+  .mw-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mw-tag { background: var(--accent-dim); color: var(--accent); font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 4px; }
+  ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 </style>
 </head>
 <body>
 
 <nav>
-  <div class="nav-title">{{.Title}}</div>
-  {{range .Docs}}
-  <a class="nav-item" href="#ep-{{lower .Endpoint.Method}}-{{.Endpoint.URI | printf "%s" | urlsafe}}">
-    <span class="nav-badge method-badge {{methodColor .Endpoint.Method}}">{{.Endpoint.Method}}</span>
-    <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{.Endpoint.URI}}</span>
-  </a>
+  <div class="nav-header">{{.Title}}</div>
+
+  {{range .Sections}}
+    {{$sectionName := .Name}}
+  <div class="nav-section" id="nav-sec-{{slugify .Name}}">
+    <div class="nav-section-header" onclick="toggleNavSection('nav-sec-{{slugify .Name}}')">
+      <span>{{.Name}}</span>
+      {{if .Version}}<span class="version-tag">{{.Version}}</span>{{end}}
+      <span class="chevron">▼</span>
+    </div>
+    <div class="nav-section-items">
+      {{range .Docs}}
+      <div class="nav-item" onclick="showEndpoint('{{slugify $sectionName}}-{{lower .Endpoint.Method}}-{{urlsafe .Endpoint.URI}}', 'sec-{{slugify $sectionName}}')">
+        <span class="nav-badge method-badge {{methodColor .Endpoint.Method}}">{{.Endpoint.Method}}</span>
+        <span class="nav-uri">{{.Endpoint.URI}}</span>
+      </div>
+      {{end}}
+    </div>
+  </div>
   {{end}}
 </nav>
 
 <main>
   <div class="page-header">
     <h1>{{.Title}}</h1>
-    <p>{{len .Docs}} endpoints documented · Generated by apidocgen</p>
+    <p>
+      {{len .Sections}} section(s) ·
+      {{range .Sections}}{{len .Docs}} + {{end}}0 endpoints · Generated by apidocgen
+    </p>
   </div>
 
-  {{range .Docs}}
-  <div class="endpoint" id="ep-{{lower .Endpoint.Method}}-{{.Endpoint.URI}}" onclick="this.classList.toggle('open')">
-    <div class="endpoint-header">
-      <span class="method-badge {{methodColor .Endpoint.Method}}">{{.Endpoint.Method}}</span>
-      <span class="endpoint-uri">{{.Endpoint.URI}}</span>
-      <span class="endpoint-summary">{{.Summary}}</span>
+  {{range .Sections}}
+    {{$sectionName := .Name}}
+  <div class="section-page" id="sec-{{slugify .Name}}">
+    <div class="section-title-bar">
+      <h2>{{.Name}}</h2>
+      {{if .Version}}<span class="section-version">{{.Version}}</span>{{end}}
+      <span class="section-count">{{len .Docs}} endpoints</span>
     </div>
 
-    <div class="endpoint-body">
-      {{if .Description}}
-      <p class="endpoint-description">{{.Description}}</p>
-      {{end}}
+    {{range .Docs}}
+    <div class="endpoint" id="{{slugify $sectionName}}-{{lower .Endpoint.Method}}-{{urlsafe .Endpoint.URI}}">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge {{methodColor .Endpoint.Method}}">{{.Endpoint.Method}}</span>
+        <span class="endpoint-uri">{{.Endpoint.URI}}</span>
+        <span class="endpoint-summary">{{.Summary}}</span>
+      </div>
+      <div class="endpoint-body">
+        {{if .Description}}<p class="endpoint-description">{{.Description}}</p>{{end}}
 
-      {{if .Endpoint.Middleware}}
-      <div class="section">
-        <div class="section-title">Middleware</div>
-        <div class="middleware-tags">
-          {{range .Endpoint.Middleware}}<span class="mw-tag">{{.}}</span>{{end}}
+        {{if .Endpoint.Middleware}}
+        <div class="section">
+          <div class="section-label">Middleware</div>
+          <div class="mw-tags">{{range .Endpoint.Middleware}}<span class="mw-tag">{{.}}</span>{{end}}</div>
         </div>
-      </div>
-      {{end}}
+        {{end}}
 
-      {{if .Parameters}}
-      <div class="section">
-        <div class="section-title">Parameters</div>
-        <table>
-          <thead>
-            <tr>
-              <th>Name</th>
-              <th>Type</th>
-              <th>Required</th>
-              <th>Description</th>
-            </tr>
-          </thead>
-          <tbody>
-            {{range .Parameters}}
-            <tr>
-              <td class="param-name">{{.Name}}</td>
-              <td class="param-type">{{.Type}}</td>
-              <td>
-                {{if .Required}}
-                <span class="badge-required">required</span>
-                {{else}}
-                <span class="badge-optional">optional</span>
-                {{end}}
-              </td>
-              <td class="param-desc">{{.Description}}</td>
-            </tr>
-            {{end}}
-          </tbody>
-        </table>
-      </div>
-      {{end}}
+        {{if .Parameters}}
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              {{range .Parameters}}
+              <tr>
+                <td class="param-name">{{.Name}}</td>
+                <td class="param-type">{{.Type}}</td>
+                <td>{{if .Required}}<span class="badge-required">required</span>{{else}}<span class="badge-optional">optional</span>{{end}}</td>
+                <td class="param-desc">{{.Description}}</td>
+              </tr>
+              {{end}}
+            </tbody>
+          </table>
+        </div>
+        {{end}}
 
-      {{if .Responses}}
-      <div class="section">
-        <div class="section-title">Responses</div>
-        {{range .Responses}}
-        <div class="response-item">
-          <div class="response-header">
-            <span class="status-badge {{statusColor .Code}}">{{.Code}}</span>
-            <span class="response-desc">{{.Description}}</span>
+        {{if .Responses}}
+        <div class="section">
+          <div class="section-label">Responses</div>
+          {{range .Responses}}
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge {{statusColor .Code}}">{{.Code}}</span>
+              <span class="response-desc">{{.Description}}</span>
+            </div>
+            {{if .Body}}<pre>{{.Body}}</pre>{{end}}
           </div>
-          {{if .Body}}
-          <pre>{{.Body}}</pre>
           {{end}}
         </div>
         {{end}}
-      </div>
-      {{end}}
 
-      {{if .Example.Body}}
-      <div class="section">
-        <div class="section-title">Request Example</div>
-        <pre>{{.Example.Body}}</pre>
+        {{if .Example.Body}}
+        <div class="section">
+          <div class="section-label">Request Example</div>
+          <pre>{{.Example.Body}}</pre>
+        </div>
+        {{end}}
       </div>
-      {{end}}
     </div>
+    {{end}}
   </div>
   {{end}}
 </main>
 
 <script>
-  // Open first endpoint by default
-  const first = document.querySelector('.endpoint');
-  if (first) first.classList.add('open');
+  function slugify(s) {
+    return s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  }
+
+  // Show a specific section
+  function showSection(sectionId) {
+    document.querySelectorAll('.section-page').forEach(el => el.classList.remove('active'));
+    const target = document.getElementById(sectionId);
+    if (target) target.classList.add('active');
+  }
+
+  // Highlight active nav item and show endpoint
+  function showEndpoint(endpointId, sectionId) {
+    showSection(sectionId);
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    const ep = document.getElementById(endpointId);
+    if (ep) {
+      ep.classList.add('open');
+      ep.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }
+
+  function toggleNavSection(id) {
+    document.getElementById(id).classList.toggle('collapsed');
+  }
+
+  // Init: show first section
+  const firstSection = document.querySelector('.section-page');
+  if (firstSection) firstSection.classList.add('active');
+
+  // Open first endpoint in first section
+  const firstEndpoint = document.querySelector('.section-page.active .endpoint');
+  if (firstEndpoint) firstEndpoint.classList.add('open');
 </script>
 </body>
 </html>`
