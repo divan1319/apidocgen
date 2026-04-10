@@ -11,7 +11,7 @@ import (
 )
 
 const anthropicAPI = "https://api.anthropic.com/v1/messages"
-const model = "claude-opus-4-5"
+const model = "claude-sonnet-4-6"
 
 type Client struct {
 	apiKey string
@@ -45,7 +45,7 @@ func (c *Client) DocumentEndpoint(ep models.Endpoint) (*models.EndpointDoc, erro
 
 	reqBody, _ := json.Marshal(request{
 		Model:     model,
-		MaxTokens: 1024,
+		MaxTokens: 4096,
 		System:    systemPrompt,
 		Messages:  []message{{Role: "user", Content: prompt}},
 	})

@@ -24,6 +24,10 @@ func (g *HTMLGenerator) Generate(docs []models.EndpointDoc, title, outputPath st
 		"methodColor": methodColor,
 		"statusColor": statusColor,
 		"lower":       strings.ToLower,
+		"urlsafe": func(s string) string {
+			r := strings.NewReplacer("/", "-", "{", "", "}", "")
+			return strings.Trim(r.Replace(s), "-")
+		},
 	}).Parse(htmlTemplate)
 	if err != nil {
 		return fmt.Errorf("parsing template: %w", err)
