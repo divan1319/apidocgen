@@ -110,6 +110,23 @@ const htmlTemplate = `<!DOCTYPE html>
     min-height: 100vh;
   }
 
+  /* ── HAMBURGER ── */
+  .menu-toggle {
+    display: none;
+    position: fixed; top: 14px; left: 14px; z-index: 200;
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--text); border-radius: var(--radius);
+    width: 40px; height: 40px;
+    align-items: center; justify-content: center;
+    cursor: pointer; font-size: 18px;
+  }
+  .nav-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 150;
+    background: rgba(0,0,0,.55);
+  }
+  .nav-overlay.open { display: block; }
+
   /* ── SIDEBAR ── */
   nav {
     position: sticky; top: 0; height: 100vh;
@@ -172,7 +189,7 @@ const htmlTemplate = `<!DOCTYPE html>
   .nav-uri { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   /* ── MAIN ── */
-  main { padding: 48px 64px; max-width: 980px; }
+  main { padding: 48px 64px; max-width: 980px; min-width: 0; }
 
   .page-header { margin-bottom: 48px; }
   .page-header h1 {
@@ -231,7 +248,8 @@ const htmlTemplate = `<!DOCTYPE html>
     font-size: 10px; font-weight: 700; letter-spacing: .1em;
     text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
   }
-  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 480px; }
   th {
     text-align: left; padding: 7px 10px; color: var(--text-muted);
     font-weight: 500; font-size: 10px; letter-spacing: .08em;
@@ -255,11 +273,45 @@ const htmlTemplate = `<!DOCTYPE html>
   .mw-tags { display: flex; gap: 6px; flex-wrap: wrap; }
   .mw-tag { background: var(--accent-dim); color: var(--accent); font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 4px; }
   ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 1024px) {
+    body { grid-template-columns: 240px 1fr; }
+    main { padding: 40px 32px; }
+  }
+
+  @media (max-width: 768px) {
+    body { grid-template-columns: 1fr; }
+    .menu-toggle { display: flex; }
+    nav {
+      position: fixed; top: 0; left: 0; z-index: 160;
+      width: 280px; height: 100vh;
+      transform: translateX(-100%);
+      transition: transform .25s ease;
+    }
+    nav.open { transform: translateX(0); }
+    main { padding: 64px 20px 40px; }
+    .page-header h1 { font-size: 28px; }
+    .endpoint-header { flex-wrap: wrap; gap: 8px; }
+    .endpoint-summary { text-align: left; width: 100%; }
+    .section-title-bar { flex-wrap: wrap; gap: 8px; }
+    .section-count { margin-left: 0; }
+  }
+
+  @media (max-width: 480px) {
+    main { padding: 56px 12px 32px; }
+    .page-header h1 { font-size: 22px; }
+    .endpoint-uri { font-size: 12px; }
+    pre { font-size: 11px; padding: 10px; }
+  }
 </style>
 </head>
 <body>
 
-<nav>
+<button class="menu-toggle" onclick="toggleNav()" aria-label="Toggle menu">☰</button>
+<div class="nav-overlay" id="nav-overlay" onclick="closeNav()"></div>
+
+<nav id="sidebar">
   <div class="nav-header">{{.Title}}</div>
 
   {{range .Sections}}
@@ -320,6 +372,7 @@ const htmlTemplate = `<!DOCTYPE html>
         {{if .Parameters}}
         <div class="section">
           <div class="section-label">Parameters</div>
+          <div class="table-wrap">
           <table>
             <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
             <tbody>
@@ -333,6 +386,7 @@ const htmlTemplate = `<!DOCTYPE html>
               {{end}}
             </tbody>
           </table>
+          </div>
         </div>
         {{end}}
 
@@ -369,6 +423,15 @@ const htmlTemplate = `<!DOCTYPE html>
     return s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
   }
 
+  function toggleNav() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('nav-overlay').classList.toggle('open');
+  }
+  function closeNav() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('nav-overlay').classList.remove('open');
+  }
+
   // Show a specific section
   function showSection(sectionId) {
     document.querySelectorAll('.section-page').forEach(el => el.classList.remove('active'));
@@ -386,6 +449,7 @@ const htmlTemplate = `<!DOCTYPE html>
       ep.classList.add('open');
       ep.scrollIntoView({ behavior: 'smooth', block: 'start' });
     }
+    closeNav();
   }
 
   function toggleNavSection(id) {
