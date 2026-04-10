@@ -26,3 +26,8 @@ Este proyecto es una herramienta de generación de documentación de API con Cla
 
 - Laravel
 - Proximamente otros frameworks
+
+## Licencia
+
+Este proyecto está bajo una licencia de uso restringido. Se permite el uso personal e interno,
+pero no la distribución ni redistribución del Software. Ve el archivo [LICENSE](LICENSE.md) para más detalles.
