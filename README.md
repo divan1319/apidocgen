@@ -2,27 +2,27 @@
 
 Este proyecto es una herramienta de generación de documentación de API con Claude. Se necesita una clave de API de Claude para generar la documentación.
 
+## Requisitos
+
+- Claude API key (en el archivo .env)
+
+## Variables de entorno
+
+- ANTHROPIC_API_KEY: API key de Claude
+- ROUTES_PATH: Ruta al archivo de rutas
+- ROOT_PATH: Ruta al directorio raíz del proyecto
+- TITLE: Título de la API
+- DOC_LANG: Idioma de la documentación
+
 ## Instalación
 
 1. Clonar el repositorio
-2. Ejecutar `build.sh` para construir el binario
-3. Ejecutar `./apidocgen` para generar la documentación
+2. Crear un archivo .env con las variables de entorno del archivo .env.example
+3. Ejecutar `build.sh` para construir el binario
+4. Ejecutar `./generate.sh` para generar la documentación
 
-## Uso
 
-1. Ejecutar:
-
-    ```bash
-    ./apidocgen generate --routes paths/to/routes.php --root /path/to/laravel-project --title "My API Documentation" --api-key ANTHROPIC_API_KEY
-    ```
-
-2. La documentación se generará en el archivo `api-docs.html`
-3. La documentación se puede abrir en el navegador con el archivo `api-docs.html`
-
-### Frameworks soportados actualmente
+## Frameworks soportados actualmente
 
 - Laravel
-
-### Dependencias
-
-- Go
+- Proximamente otros frameworks
