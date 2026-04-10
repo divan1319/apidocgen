@@ -24,6 +24,7 @@ func main() {
 	output := genCmd.String("output", "api-docs.html", "Output HTML file")
 	title := genCmd.String("title", "API Documentation", "Documentation title")
 	apiKey := genCmd.String("api-key", "", "Anthropic API key (or set ANTHROPIC_API_KEY env var)")
+	docLang := genCmd.String("doc-lang", "", "Documentation language: en (English) or es (Español). Prompted interactively if not set.")
 
 	if len(os.Args) < 2 {
 		printUsage()
@@ -33,7 +34,7 @@ func main() {
 	switch os.Args[1] {
 	case "generate":
 		genCmd.Parse(os.Args[2:])
-		runGenerate(*lang, *routes, *root, *output, *title, *apiKey)
+		runGenerate(*lang, *routes, *root, *output, *title, *apiKey, *docLang)
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -43,7 +44,7 @@ func main() {
 	}
 }
 
-func runGenerate(lang, routes, root, output, title, apiKey string) {
+func runGenerate(lang, routes, root, output, title, apiKey, docLang string) {
 	if apiKey == "" {
 		apiKey = os.Getenv("ANTHROPIC_API_KEY")
 	}
@@ -58,13 +59,13 @@ func runGenerate(lang, routes, root, output, title, apiKey string) {
 
 	switch lang {
 	case "laravel":
-		runLaravel(files, root, output, title, apiKey)
+		runLaravel(files, root, output, title, apiKey, docLang)
 	default:
 		fatal("unsupported language: %s (supported: laravel)", lang)
 	}
 }
 
-func runLaravel(files []string, root, output, title, apiKey string) {
+func runLaravel(files []string, root, output, title, apiKey, docLang string) {
 	p := laravel.New(root)
 
 	// ── Step 1: resolve all included files ───────────────────────────────────
@@ -75,9 +76,26 @@ func runLaravel(files []string, root, output, title, apiKey string) {
 	}
 	fmt.Printf("  Found %d file(s)\n", len(allFiles))
 
-	// ── Step 2: prompt user to name each section ──────────────────────────────
-	fmt.Println("\n→ Name each section (press Enter to use the suggested name):")
 	reader := bufio.NewReader(os.Stdin)
+
+	// ── Step 2: ask for documentation language if not set via flag ────────────
+	if docLang == "" {
+		fmt.Println("\n→ Documentation language / Idioma de la documentación:")
+		fmt.Println("  [1] English")
+		fmt.Println("  [2] Español")
+		fmt.Print("  Select / Selecciona [1/2] (default: 1): ")
+		choice, _ := reader.ReadString('\n')
+		choice = strings.TrimSpace(choice)
+		switch choice {
+		case "2", "es", "español", "spanish":
+			docLang = "es"
+		default:
+			docLang = "en"
+		}
+	}
+
+	// ── Step 3: prompt user to name each section ──────────────────────────────
+	fmt.Println("\n→ Name each section (press Enter to use the suggested name):")
 	sectionNames := make(map[string]string, len(allFiles))
 
 	for _, f := range allFiles {
@@ -91,7 +109,7 @@ func runLaravel(files []string, root, output, title, apiKey string) {
 		sectionNames[f] = input
 	}
 
-	// ── Step 3: parse sections ────────────────────────────────────────────────
+	// ── Step 4: parse sections ────────────────────────────────────────────────
 	fmt.Println("\n→ Parsing routes...")
 	sections, err := p.ParseSections(allFiles)
 	if err != nil {
@@ -111,9 +129,12 @@ func runLaravel(files []string, root, output, title, apiKey string) {
 	}
 	fmt.Printf("  Found %d section(s), %d endpoint(s) total\n", len(sections), totalEndpoints)
 
-	// ── Step 4: document with AI ──────────────────────────────────────────────
+	// ── Step 5: document with AI ──────────────────────────────────────────────
 	fmt.Println("\n→ Generating documentation with Claude...")
-	client := ai.New(apiKey)
+	client, err := ai.New(apiKey, docLang)
+	if err != nil {
+		fatal("initializing AI client: %v", err)
+	}
 	var sectionDocs []models.SectionDoc
 
 	for _, section := range sections {
@@ -137,7 +158,7 @@ func runLaravel(files []string, root, output, title, apiKey string) {
 		sectionDocs = append(sectionDocs, sd)
 	}
 
-	// ── Step 5: generate HTML ─────────────────────────────────────────────────
+	// ── Step 6: generate HTML ─────────────────────────────────────────────────
 	fmt.Printf("\n→ Writing %s...\n", output)
 	gen := generator.New()
 	if err := gen.GenerateSections(sectionDocs, title, output); err != nil {
@@ -196,10 +217,13 @@ FLAGS:
   --output    Output HTML file (default: api-docs.html)
   --title     Documentation title (default: "API Documentation")
   --api-key   Anthropic API key (or use ANTHROPIC_API_KEY env var)
+  --doc-lang  Documentation language: en (English) or es (Español)
+              If not set, you will be prompted interactively.
 
 EXAMPLES:
   apidocgen generate --routes routes/api.php --root /path/to/laravel-project
   apidocgen generate --routes routes/api.php,routes/web.php --title "My API v2"
+  apidocgen generate --routes routes/api.php --doc-lang es
   ANTHROPIC_API_KEY=sk-... apidocgen generate --routes routes/api.php`)
 }
 

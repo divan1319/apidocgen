@@ -2,6 +2,7 @@ package ai
 
 import (
 	"bytes"
+	_ "embed"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -13,12 +14,38 @@ import (
 const anthropicAPI = "https://api.anthropic.com/v1/messages"
 const model = "claude-sonnet-4-6"
 
-type Client struct {
-	apiKey string
+//go:embed prompts.json
+var promptsData []byte
+
+type prompts struct {
+	EN string `json:"en"`
+	ES string `json:"es"`
 }
 
-func New(apiKey string) *Client {
-	return &Client{apiKey: apiKey}
+func loadPrompt(lang string) (string, error) {
+	var p prompts
+	if err := json.Unmarshal(promptsData, &p); err != nil {
+		return "", fmt.Errorf("loading prompts.json: %w", err)
+	}
+	switch strings.ToLower(lang) {
+	case "es", "español", "spanish":
+		return p.ES, nil
+	default:
+		return p.EN, nil
+	}
+}
+
+type Client struct {
+	apiKey       string
+	systemPrompt string
+}
+
+func New(apiKey, lang string) (*Client, error) {
+	prompt, err := loadPrompt(lang)
+	if err != nil {
+		return nil, err
+	}
+	return &Client{apiKey: apiKey, systemPrompt: prompt}, nil
 }
 
 type message struct {
@@ -46,7 +73,7 @@ func (c *Client) DocumentEndpoint(ep models.Endpoint) (*models.EndpointDoc, erro
 	reqBody, _ := json.Marshal(request{
 		Model:     model,
 		MaxTokens: 4096,
-		System:    systemPrompt,
+		System:    c.systemPrompt,
 		Messages:  []message{{Role: "user", Content: prompt}},
 	})
 
@@ -72,34 +99,6 @@ func (c *Client) DocumentEndpoint(ep models.Endpoint) (*models.EndpointDoc, erro
 
 	return parseDocResponse(ep, apiResp.Content[0].Text)
 }
-
-const systemPrompt = `You are an API documentation expert. Analyze the provided Laravel endpoint information and generate structured documentation.
-
-Always respond with valid JSON only, no markdown, no explanation. Use this exact structure:
-{
-  "summary": "short one-liner describing what this endpoint does",
-  "description": "fuller explanation of the endpoint behavior, business logic, side effects",
-  "parameters": [
-    {
-      "name": "field_name",
-      "type": "string|integer|boolean|array|file",
-      "required": true,
-      "rules": "raw validation rules if available",
-      "description": "what this parameter does"
-    }
-  ],
-  "responses": [
-    {
-      "code": 200,
-      "description": "what this response means",
-      "body": "{\"key\": \"example value\"}"
-    }
-  ],
-  "example": {
-    "headers": {"Authorization": "Bearer {token}", "Accept": "application/json"},
-    "body": "{\"field\": \"value\"}"
-  }
-}`
 
 func buildPrompt(ep models.Endpoint) string {
 	var sb strings.Builder
@@ -131,7 +130,6 @@ func buildPrompt(ep models.Endpoint) string {
 }
 
 func parseDocResponse(ep models.Endpoint, text string) (*models.EndpointDoc, error) {
-	// Strip any accidental markdown fences
 	text = strings.TrimPrefix(text, "```json")
 	text = strings.TrimSuffix(text, "```")
 	text = strings.TrimSpace(text)
