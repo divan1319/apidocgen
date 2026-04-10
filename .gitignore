@@ -1,5 +1,3 @@
 .env
-api-docs.html
-apidocgen
-*.html
+*.html 
 *.json
