@@ -158,6 +158,56 @@
       },
       "source_hash": "e3b0c44298fc1c14"
     },
+    "GET:/admin": {
+      "doc": {
+        "Endpoint": {
+          "Method": "GET",
+          "URI": "/admin",
+          "Name": "",
+          "Controller": "",
+          "Action": "function () {\n        return response()-\u003ejson([\n            'message' =\u003e 'Admin',\n        ], 200);\n    }",
+          "Middleware": [
+            "auth:sanctum"
+          ],
+          "RawSource": "",
+          "StaticMeta": {
+            "RequestParams": null,
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "php"
+        },
+        "Summary": "Acceder al panel de administración",
+        "Description": "Endpoint de acceso al panel de administración. Requiere autenticación mediante token Sanctum. Devuelve información o recursos relacionados con el área administrativa de la aplicación. Solo usuarios autenticados con un token válido pueden acceder a este recurso.",
+        "Parameters": null,
+        "Responses": [
+          {
+            "Code": 200,
+            "Description": "Acceso exitoso al panel de administración. Devuelve los datos o la vista del área administrativa.",
+            "Body": "{\"status\": \"success\", \"message\": \"Bienvenido al panel de administración\", \"data\": {}}"
+          },
+          {
+            "Code": 401,
+            "Description": "No autenticado. El token de autenticación no fue proporcionado, es inválido o ha expirado.",
+            "Body": "{\"message\": \"Unauthenticated.\"}"
+          },
+          {
+            "Code": 403,
+            "Description": "Acceso prohibido. El usuario autenticado no tiene permisos suficientes para acceder al panel de administración.",
+            "Body": "{\"message\": \"This action is unauthorized.\"}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}",
+            "Content-Type": "application/json"
+          },
+          "Body": ""
+        }
+      },
+      "source_hash": "e3b0c44298fc1c14"
+    },
     "GET:/catalogo": {
       "doc": {
         "Endpoint": {
