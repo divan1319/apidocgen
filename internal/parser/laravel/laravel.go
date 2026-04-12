@@ -7,8 +7,15 @@ import (
 	"regexp"
 	"strings"
 
+	"github.com/divan1319/apidocgen/internal/parser"
 	"github.com/divan1319/apidocgen/pkg/models"
 )
+
+func init() {
+	parser.Register("laravel", func(root string) parser.Parser {
+		return New(root)
+	})
+}
 
 // ── Parser ───────────────────────────────────────────────────────────────────
 

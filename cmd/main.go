@@ -13,24 +13,26 @@ import (
 	"github.com/divan1319/apidocgen/internal/ai"
 	"github.com/divan1319/apidocgen/internal/cache"
 	"github.com/divan1319/apidocgen/internal/generator"
-	"github.com/divan1319/apidocgen/internal/parser/dotnet"
-	"github.com/divan1319/apidocgen/internal/parser/laravel"
+	"github.com/divan1319/apidocgen/internal/parser"
 	"github.com/divan1319/apidocgen/pkg/models"
+
+	_ "github.com/divan1319/apidocgen/internal/parser/dotnet"
+	_ "github.com/divan1319/apidocgen/internal/parser/laravel"
 )
 
 func main() {
 	genCmd := flag.NewFlagSet("generate", flag.ExitOnError)
 
-	lang       := genCmd.String("lang",    "laravel",           "Language/framework: laravel, dotnet")
-	routes     := genCmd.String("routes",  "",                  "Comma-separated route files (e.g. routes/api.php)")
-	root       := genCmd.String("root",    ".",                 "Project root directory")
-	output     := genCmd.String("output",  "api-docs.html",     "Output HTML file")
-	title      := genCmd.String("title",   "API Documentation", "Documentation title")
-	apiKey     := genCmd.String("api-key", "",                  "Anthropic API key (or set ANTHROPIC_API_KEY env var)")
-	docLang    := genCmd.String("doc-lang","",                  "Documentation language: en (English) or es (Español). Prompted interactively if not set.")
+	lang       := genCmd.String("lang",    "laravel",              "Language/framework: "+strings.Join(parser.Names(), ", "))
+	routes     := genCmd.String("routes",  "",                     "Comma-separated route files (e.g. routes/api.php)")
+	root       := genCmd.String("root",    ".",                    "Project root directory")
+	output     := genCmd.String("output",  "api-docs.html",       "Output HTML file")
+	title      := genCmd.String("title",   "API Documentation",   "Documentation title")
+	apiKey     := genCmd.String("api-key", "",                     "Anthropic API key (or set ANTHROPIC_API_KEY env var)")
+	docLang    := genCmd.String("doc-lang","",                     "Documentation language: en (English) or es (Español). Prompted interactively if not set.")
 	cacheFile  := genCmd.String("cache",   "apidocgen-cache.json", "Path to cache file. Use --cache=\"\" to disable.")
-	forceRegen := genCmd.Bool("force",     false,               "Ignore cache and re-document all endpoints with Claude.")
-	workers    := genCmd.Int("workers",    5,                   "Concurrent requests to Claude API (default: 5)")
+	forceRegen := genCmd.Bool("force",     false,                  "Ignore cache and re-document all endpoints with Claude.")
+	workers    := genCmd.Int("workers",    5,                      "Concurrent requests to Claude API (default: 5)")
 
 	if len(os.Args) < 2 {
 		printUsage()
@@ -61,26 +63,18 @@ func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile s
 		fatal("--routes is required (e.g. --routes routes/api.php)")
 	}
 
+	p, err := parser.Get(lang, root)
+	if err != nil {
+		fatal("%v", err)
+	}
+
 	files := splitTrim(routes, ",")
 
-	switch lang {
-	case "laravel":
-		runLaravel(files, root, output, title, apiKey, docLang, cacheFile, forceRegen, workers)
-	case "dotnet":
-		runDotnet(files, root, output, title, apiKey, docLang, cacheFile, forceRegen, workers)
-	default:
-		fatal("unsupported language: %s (supported: laravel, dotnet)", lang)
-	}
-}
-
-func runLaravel(files []string, root, output, title, apiKey, docLang, cacheFile string, forceRegen bool, workers int) {
-	p := laravel.New(root)
-
 	// ── Step 1: resolve all included files ───────────────────────────────────
-	fmt.Println("→ Resolving includes...")
+	fmt.Println("→ Resolving files...")
 	allFiles, err := p.ResolveIncludes(files)
 	if err != nil {
-		fatal("resolving includes: %v", err)
+		fatal("resolving files: %v", err)
 	}
 	fmt.Printf("  Found %d file(s)\n", len(allFiles))
 
@@ -119,134 +113,15 @@ func runLaravel(files []string, root, output, title, apiKey, docLang, cacheFile 
 		}
 	}
 
-	// ── Step 4: prompt user to name each section ──────────────────────────────
-	fmt.Println("\n→ Name each section (press Enter to use the suggested name):")
-	sectionNames := make(map[string]string, len(allFiles))
-
-	for _, f := range allFiles {
-		suggested := suggestSectionName(f)
-		fmt.Printf("  %s [%s]: ", f, suggested)
-		input, _ := reader.ReadString('\n')
-		input = strings.TrimSpace(input)
-		if input == "" {
-			input = suggested
-		}
-		sectionNames[f] = input
-	}
-
-	// ── Step 5: parse sections ────────────────────────────────────────────────
-	fmt.Println("\n→ Parsing routes...")
-	sections, err := p.ParseSections(allFiles)
-	if err != nil {
-		fatal("parsing routes: %v", err)
-	}
-
-	for i := range sections {
-		if name, ok := sectionNames[sections[i].FilePath]; ok {
-			sections[i].Name = name
-		}
-	}
-
-	totalEndpoints := 0
-	for _, s := range sections {
-		totalEndpoints += len(s.Endpoints)
-	}
-	fmt.Printf("  Found %d section(s), %d endpoint(s) total\n", len(sections), totalEndpoints)
-
-	// ── Step 6: document with AI (worker pool + cache) ────────────────────────
-	fmt.Printf("\n→ Generating documentation with Claude (workers: %d)...\n", workers)
-	client, err := ai.New(apiKey, docLang)
-	if err != nil {
-		fatal("initializing AI client: %v", err)
-	}
-
-	var sectionDocs []models.SectionDoc
-	totalHits, totalMisses := 0, 0
-
-	for _, section := range sections {
-		fmt.Printf("\n  [%s] — %d endpoints\n", section.Name, len(section.Endpoints))
-		sd, hits, misses := documentSection(client, docCache, section, workers, forceRegen)
-		sectionDocs = append(sectionDocs, sd)
-		totalHits += hits
-		totalMisses += misses
-
-		// Save cache after each section
-		if docCache != nil && misses > 0 {
-			if err := docCache.Save(); err != nil {
-				fmt.Fprintf(os.Stderr, "  warning: could not save cache: %v\n", err)
-			}
-		}
-	}
-
-	if docCache != nil {
-		fmt.Printf("\n  Cache summary: %d from cache, %d newly documented\n", totalHits, totalMisses)
-	}
-
-	// ── Step 7: generate HTML ─────────────────────────────────────────────────
-	fmt.Printf("\n→ Writing %s...\n", output)
-	gen := generator.New()
-	if err := gen.GenerateSections(sectionDocs, title, output); err != nil {
-		fatal("generating HTML: %v", err)
-	}
-
-	fmt.Printf("✓ Done! Open %s in your browser.\n", output)
-}
-
-func runDotnet(files []string, root, output, title, apiKey, docLang, cacheFile string, forceRegen bool, workers int) {
-	p := dotnet.New(root)
-
-	// ── Step 1: resolve all .cs files ────────────────────────────────────────
-	fmt.Println("→ Resolving .cs files...")
-	allFiles, err := p.ResolveIncludes(files)
-	if err != nil {
-		fatal("resolving files: %v", err)
-	}
-	fmt.Printf("  Found %d file(s)\n", len(allFiles))
-
-	reader := bufio.NewReader(os.Stdin)
-
-	// ── Step 2: ask for documentation language if not set via flag ────────────
-	if docLang == "" {
-		fmt.Println("\n→ Documentation language / Idioma de la documentación:")
-		fmt.Println("  [1] English")
-		fmt.Println("  [2] Español")
-		fmt.Print("  Select / Selecciona [1/2] (default: 1): ")
-		choice, _ := reader.ReadString('\n')
-		choice = strings.TrimSpace(choice)
-		switch choice {
-		case "2", "es", "español", "spanish":
-			docLang = "es"
-		default:
-			docLang = "en"
-		}
-	}
-
-	// ── Step 3: load cache ───────────────────────────────────────────────────
-	var docCache *cache.Cache
-	if cacheFile != "" {
-		docCache, err = cache.Load(cacheFile)
-		if err != nil {
-			fatal("loading cache: %v", err)
-		}
-		if docCache.Len() > 0 {
-			fmt.Printf("\n→ Cache loaded: %d endpoint(s) already documented (%s)\n", docCache.Len(), cacheFile)
-		} else {
-			fmt.Printf("\n→ Cache: starting fresh (%s)\n", cacheFile)
-		}
-		if forceRegen {
-			fmt.Println("  --force: ignoring cache, all endpoints will be re-documented.")
-		}
-	}
-
-	// ── Step 4: prompt user to name each section ─────────────────────────────
-	// First parse to know which files actually have endpoints
-	fmt.Println("\n→ Parsing .NET endpoints...")
+	// ── Step 4: parse sections ───────────────────────────────────────────────
+	fmt.Println("\n→ Parsing endpoints...")
 	sections, err := p.ParseSections(allFiles)
 	if err != nil {
 		fatal("parsing endpoints: %v", err)
 	}
 
-	fmt.Printf("\n→ Name each section (press Enter to use the suggested name):\n")
+	// ── Step 5: prompt user to name each section ─────────────────────────────
+	fmt.Println("\n→ Name each section (press Enter to use the suggested name):")
 	for i, s := range sections {
 		suggested := suggestSectionName(s.FilePath)
 		fmt.Printf("  %s [%s]: ", s.FilePath, suggested)
@@ -264,7 +139,7 @@ func runDotnet(files []string, root, output, title, apiKey, docLang, cacheFile s
 	}
 	fmt.Printf("  Found %d section(s), %d endpoint(s) total\n", len(sections), totalEndpoints)
 
-	// ── Step 5: document with AI (worker pool + cache) ───────────────────────
+	// ── Step 6: document with AI (worker pool + cache) ───────────────────────
 	fmt.Printf("\n→ Generating documentation with Claude (workers: %d)...\n", workers)
 	client, err := ai.New(apiKey, docLang)
 	if err != nil {
@@ -292,7 +167,7 @@ func runDotnet(files []string, root, output, title, apiKey, docLang, cacheFile s
 		fmt.Printf("\n  Cache summary: %d from cache, %d newly documented\n", totalHits, totalMisses)
 	}
 
-	// ── Step 6: generate HTML ────────────────────────────────────────────────
+	// ── Step 7: generate HTML ────────────────────────────────────────────────
 	fmt.Printf("\n→ Writing %s...\n", output)
 	gen := generator.New()
 	if err := gen.GenerateSections(sectionDocs, title, output); err != nil {
@@ -302,9 +177,6 @@ func runDotnet(files []string, root, output, title, apiKey, docLang, cacheFile s
 	fmt.Printf("✓ Done! Open %s in your browser.\n", output)
 }
 
-// documentSection documents all endpoints in a section concurrently using a
-// worker pool limited by `workers`. Cache hits are served without calling Claude.
-// Results are written by index so order is preserved.
 func documentSection(
 	client *ai.Client,
 	docCache *cache.Cache,
@@ -327,10 +199,9 @@ func documentSection(
 	results := make([]result, len(section.Endpoints))
 	sem := make(chan struct{}, workers)
 	var wg sync.WaitGroup
-	var cacheMu sync.Mutex // protects docCache.Set across goroutines
+	var cacheMu sync.Mutex
 
 	for i, ep := range section.Endpoints {
-		// Serve from cache without spinning up a goroutine
 		if docCache != nil && !forceRegen {
 			if cached, ok := docCache.Get(ep); ok {
 				results[i] = result{doc: cached, cached: true}
@@ -411,13 +282,13 @@ func splitTrim(s, sep string) []string {
 }
 
 func printUsage() {
-	fmt.Println(`apidocgen - AI-powered API documentation generator
+	fmt.Printf(`apidocgen - AI-powered API documentation generator
 
 USAGE:
   apidocgen generate [flags]
 
 FLAGS:
-  --lang      Language/framework: laravel, dotnet (default: laravel)
+  --lang      Language/framework: %s (default: laravel)
   --routes    Comma-separated route files or directories to parse
   --root      Project root directory (default: .)
   --output    Output HTML file (default: api-docs.html)
@@ -437,7 +308,8 @@ EXAMPLES:
   # .NET / ASP.NET Core
   apidocgen generate --lang dotnet --routes Controllers/ --root /path/to/dotnet-project
   apidocgen generate --lang dotnet --routes Program.cs,Controllers/ --doc-lang es
-  ANTHROPIC_API_KEY=sk-... apidocgen generate --lang dotnet --routes Controllers/`)
+  ANTHROPIC_API_KEY=sk-... apidocgen generate --lang dotnet --routes Controllers/
+`, strings.Join(parser.Names(), ", "))
 }
 
 func fatal(format string, args ...any) {
