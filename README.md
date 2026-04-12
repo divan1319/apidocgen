@@ -174,6 +174,93 @@ Los HTML generados se sirven en `/docs/<slug>.html`.
 
 Se pueden agregar nuevos parsers implementando la interfaz `Parser` y registrándolos en `internal/parser/`.
 
+## Ejemplos de configuración de rutas
+
+El campo **routes** indica qué archivos debe analizar el parser para encontrar los endpoints. Es relativo al **root** del proyecto.
+
+### Laravel
+
+En Laravel las rutas se definen en archivos PHP dentro de `routes/`. Puedes apuntar a uno o varios archivos separados por coma.
+
+**Un solo archivo de rutas:**
+
+```
+routes: routes/api.php
+root:   /home/user/mi-proyecto-laravel
+```
+
+Esto analiza `/home/user/mi-proyecto-laravel/routes/api.php`. Si ese archivo tiene `include` o `require` a otros archivos (por ejemplo rutas versionadas), el parser los resuelve automáticamente.
+
+**Múltiples archivos:**
+
+```
+routes: routes/api.php,routes/web.php
+root:   /home/user/mi-proyecto-laravel
+```
+
+**Rutas versionadas con includes:**
+
+Si tu `routes/api.php` tiene algo como:
+
+```php
+<?php
+require __DIR__.'/api/v1/users.php';
+require __DIR__.'/api/v1/products.php';
+require __DIR__.'/api/v2/users.php';
+```
+
+Basta con apuntar a `routes/api.php` y el parser seguirá los includes automáticamente, generando una sección por cada archivo.
+
+**Apuntar directamente a un archivo de versión:**
+
+```
+routes: routes/api/v1/users.php
+root:   /home/user/mi-proyecto-laravel
+```
+
+### .NET / ASP.NET Core
+
+En .NET las rutas se definen dentro de controladores (clases con atributos `[Route]`, `[HttpGet]`, etc.) o en `Program.cs` con Minimal APIs.
+
+**Carpeta de controladores:**
+
+```
+routes: Controllers/
+root:   /home/user/mi-proyecto-dotnet
+```
+
+Esto escanea recursivamente todos los archivos `.cs` dentro de `Controllers/` buscando endpoints.
+
+**Controlador específico:**
+
+```
+routes: Controllers/UsersController.cs
+root:   /home/user/mi-proyecto-dotnet
+```
+
+**Múltiples fuentes (controladores + Minimal APIs):**
+
+```
+routes: Controllers/,Program.cs
+root:   /home/user/mi-proyecto-dotnet
+```
+
+Esto analiza todos los controladores en `Controllers/` y también los endpoints definidos con `app.MapGet(...)`, `app.MapPost(...)`, etc. en `Program.cs`.
+
+**Solo una carpeta de versión:**
+
+```
+routes: Controllers/Api/V1/
+root:   /home/user/mi-proyecto-dotnet
+```
+
+### Notas generales
+
+- Las rutas son **relativas al root** del proyecto. No necesitas poner la ruta absoluta completa.
+- Si pones una **carpeta** (solo .NET), el parser escanea recursivamente todos los `.cs` dentro.
+- Puedes separar **múltiples archivos o carpetas** con coma: `routes/api.php,routes/admin.php`.
+- Cada archivo procesado genera una **sección** independiente en la documentación final.
+
 ## Licencia
 
 Uso restringido: permitido el uso personal e interno; no se permite la distribución ni la redistribución del software. Consulta [LICENSE.md](LICENSE.md) para el texto completo.
