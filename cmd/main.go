@@ -13,6 +13,7 @@ import (
 	"github.com/divan1319/apidocgen/internal/ai"
 	"github.com/divan1319/apidocgen/internal/cache"
 	"github.com/divan1319/apidocgen/internal/generator"
+	"github.com/divan1319/apidocgen/internal/parser/dotnet"
 	"github.com/divan1319/apidocgen/internal/parser/laravel"
 	"github.com/divan1319/apidocgen/pkg/models"
 )
@@ -20,7 +21,7 @@ import (
 func main() {
 	genCmd := flag.NewFlagSet("generate", flag.ExitOnError)
 
-	lang       := genCmd.String("lang",    "laravel",           "Language/framework: laravel (more coming soon)")
+	lang       := genCmd.String("lang",    "laravel",           "Language/framework: laravel, dotnet")
 	routes     := genCmd.String("routes",  "",                  "Comma-separated route files (e.g. routes/api.php)")
 	root       := genCmd.String("root",    ".",                 "Project root directory")
 	output     := genCmd.String("output",  "api-docs.html",     "Output HTML file")
@@ -65,8 +66,10 @@ func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile s
 	switch lang {
 	case "laravel":
 		runLaravel(files, root, output, title, apiKey, docLang, cacheFile, forceRegen, workers)
+	case "dotnet":
+		runDotnet(files, root, output, title, apiKey, docLang, cacheFile, forceRegen, workers)
 	default:
-		fatal("unsupported language: %s (supported: laravel)", lang)
+		fatal("unsupported language: %s (supported: laravel, dotnet)", lang)
 	}
 }
 
@@ -180,6 +183,116 @@ func runLaravel(files []string, root, output, title, apiKey, docLang, cacheFile 
 	}
 
 	// ── Step 7: generate HTML ─────────────────────────────────────────────────
+	fmt.Printf("\n→ Writing %s...\n", output)
+	gen := generator.New()
+	if err := gen.GenerateSections(sectionDocs, title, output); err != nil {
+		fatal("generating HTML: %v", err)
+	}
+
+	fmt.Printf("✓ Done! Open %s in your browser.\n", output)
+}
+
+func runDotnet(files []string, root, output, title, apiKey, docLang, cacheFile string, forceRegen bool, workers int) {
+	p := dotnet.New(root)
+
+	// ── Step 1: resolve all .cs files ────────────────────────────────────────
+	fmt.Println("→ Resolving .cs files...")
+	allFiles, err := p.ResolveIncludes(files)
+	if err != nil {
+		fatal("resolving files: %v", err)
+	}
+	fmt.Printf("  Found %d file(s)\n", len(allFiles))
+
+	reader := bufio.NewReader(os.Stdin)
+
+	// ── Step 2: ask for documentation language if not set via flag ────────────
+	if docLang == "" {
+		fmt.Println("\n→ Documentation language / Idioma de la documentación:")
+		fmt.Println("  [1] English")
+		fmt.Println("  [2] Español")
+		fmt.Print("  Select / Selecciona [1/2] (default: 1): ")
+		choice, _ := reader.ReadString('\n')
+		choice = strings.TrimSpace(choice)
+		switch choice {
+		case "2", "es", "español", "spanish":
+			docLang = "es"
+		default:
+			docLang = "en"
+		}
+	}
+
+	// ── Step 3: load cache ───────────────────────────────────────────────────
+	var docCache *cache.Cache
+	if cacheFile != "" {
+		docCache, err = cache.Load(cacheFile)
+		if err != nil {
+			fatal("loading cache: %v", err)
+		}
+		if docCache.Len() > 0 {
+			fmt.Printf("\n→ Cache loaded: %d endpoint(s) already documented (%s)\n", docCache.Len(), cacheFile)
+		} else {
+			fmt.Printf("\n→ Cache: starting fresh (%s)\n", cacheFile)
+		}
+		if forceRegen {
+			fmt.Println("  --force: ignoring cache, all endpoints will be re-documented.")
+		}
+	}
+
+	// ── Step 4: prompt user to name each section ─────────────────────────────
+	// First parse to know which files actually have endpoints
+	fmt.Println("\n→ Parsing .NET endpoints...")
+	sections, err := p.ParseSections(allFiles)
+	if err != nil {
+		fatal("parsing endpoints: %v", err)
+	}
+
+	fmt.Printf("\n→ Name each section (press Enter to use the suggested name):\n")
+	for i, s := range sections {
+		suggested := suggestSectionName(s.FilePath)
+		fmt.Printf("  %s [%s]: ", s.FilePath, suggested)
+		input, _ := reader.ReadString('\n')
+		input = strings.TrimSpace(input)
+		if input == "" {
+			input = suggested
+		}
+		sections[i].Name = input
+	}
+
+	totalEndpoints := 0
+	for _, s := range sections {
+		totalEndpoints += len(s.Endpoints)
+	}
+	fmt.Printf("  Found %d section(s), %d endpoint(s) total\n", len(sections), totalEndpoints)
+
+	// ── Step 5: document with AI (worker pool + cache) ───────────────────────
+	fmt.Printf("\n→ Generating documentation with Claude (workers: %d)...\n", workers)
+	client, err := ai.New(apiKey, docLang)
+	if err != nil {
+		fatal("initializing AI client: %v", err)
+	}
+
+	var sectionDocs []models.SectionDoc
+	totalHits, totalMisses := 0, 0
+
+	for _, section := range sections {
+		fmt.Printf("\n  [%s] — %d endpoints\n", section.Name, len(section.Endpoints))
+		sd, hits, misses := documentSection(client, docCache, section, workers, forceRegen)
+		sectionDocs = append(sectionDocs, sd)
+		totalHits += hits
+		totalMisses += misses
+
+		if docCache != nil && misses > 0 {
+			if err := docCache.Save(); err != nil {
+				fmt.Fprintf(os.Stderr, "  warning: could not save cache: %v\n", err)
+			}
+		}
+	}
+
+	if docCache != nil {
+		fmt.Printf("\n  Cache summary: %d from cache, %d newly documented\n", totalHits, totalMisses)
+	}
+
+	// ── Step 6: generate HTML ────────────────────────────────────────────────
 	fmt.Printf("\n→ Writing %s...\n", output)
 	gen := generator.New()
 	if err := gen.GenerateSections(sectionDocs, title, output); err != nil {
@@ -304,8 +417,8 @@ USAGE:
   apidocgen generate [flags]
 
 FLAGS:
-  --lang      Language/framework (default: laravel)
-  --routes    Comma-separated route files to parse
+  --lang      Language/framework: laravel, dotnet (default: laravel)
+  --routes    Comma-separated route files or directories to parse
   --root      Project root directory (default: .)
   --output    Output HTML file (default: api-docs.html)
   --title     Documentation title (default: "API Documentation")
@@ -317,10 +430,14 @@ FLAGS:
   --workers   Concurrent Claude API requests (default: 5)
 
 EXAMPLES:
+  # Laravel
   apidocgen generate --routes routes/api.php --root /path/to/laravel-project
   apidocgen generate --routes routes/api.php --doc-lang es --workers 10
-  apidocgen generate --routes routes/api.php --force
-  ANTHROPIC_API_KEY=sk-... apidocgen generate --routes routes/api.php`)
+
+  # .NET / ASP.NET Core
+  apidocgen generate --lang dotnet --routes Controllers/ --root /path/to/dotnet-project
+  apidocgen generate --lang dotnet --routes Program.cs,Controllers/ --doc-lang es
+  ANTHROPIC_API_KEY=sk-... apidocgen generate --lang dotnet --routes Controllers/`)
 }
 
 func fatal(format string, args ...any) {

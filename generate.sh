@@ -8,6 +8,7 @@ source .env
 
 # 3. Ejecutamos el comando
 ./apidocgen generate \
+--lang "$LANG" \
 --routes "$ROUTES_PATH" \
 --root "$ROOT_PATH" \
 --title "$TITLE" \

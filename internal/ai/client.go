@@ -151,7 +151,11 @@ func buildPrompt(ep models.Endpoint) string {
 	}
 
 	if ep.RawSource != "" {
-		sb.WriteString("\nController source code:\n```php\n")
+		lang := ep.Language
+		if lang == "" {
+			lang = "php"
+		}
+		sb.WriteString(fmt.Sprintf("\nController source code:\n```%s\n", lang))
 		sb.WriteString(ep.RawSource)
 		sb.WriteString("\n```\n")
 	}

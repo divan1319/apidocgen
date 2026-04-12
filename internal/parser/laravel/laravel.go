@@ -356,6 +356,7 @@ func expandResource(r rawRoute, ctx groupContext) []models.Endpoint {
 			Controller: controller,
 			Action:     a.action,
 			Middleware: append([]string{}, ctx.middleware...),
+			Language:   "php",
 		})
 	}
 	return eps
@@ -405,6 +406,7 @@ func (p *LaravelParser) resolveEndpoint(r rawRoute, ctx groupContext) models.End
 		Controller: controller,
 		Action:     action,
 		Middleware: append([]string{}, ctx.middleware...),
+		Language:   "php",
 	}
 	ep.RawSource = p.readControllerSource(controller, action)
 	ep.StaticMeta = p.extractStaticMeta(ep.RawSource)

@@ -23,6 +23,7 @@ type Endpoint struct {
 	Middleware []string
 	RawSource  string
 	StaticMeta StaticMeta
+	Language   string // "php", "csharp", etc. — used for code fences in AI prompts
 }
 
 type StaticMeta struct {
