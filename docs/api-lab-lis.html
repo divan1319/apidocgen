@@ -1,0 +1,1440 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API LAB LIS DOC</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface-2: #1a1a24;
+    --border: #2a2a3a;
+    --text: #e8e8f0;
+    --text-muted: #6b6b80;
+    --accent: #7c6af7;
+    --accent-dim: rgba(124,106,247,0.12);
+    --get:    #22d3a5; --get-bg: rgba(34,211,165,0.08);
+    --post:   #f97316; --post-bg:rgba(249,115,22,0.08);
+    --put:    #eab308; --put-bg: rgba(234,179,8,0.08);
+    --delete: #f43f5e; --del-bg: rgba(244,63,94,0.08);
+    --success:#22d3a5; --warn:#f97316; --danger:#f43f5e;
+    --radius: 8px;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 100vh;
+  }
+
+   
+  .menu-toggle {
+    display: none;
+    position: fixed; top: 14px; left: 14px; z-index: 200;
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--text); border-radius: var(--radius);
+    width: 40px; height: 40px;
+    align-items: center; justify-content: center;
+    cursor: pointer; font-size: 18px;
+  }
+  .nav-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 150;
+    background: rgba(0,0,0,.55);
+  }
+  .nav-overlay.open { display: block; }
+
+   
+  nav {
+    position: sticky; top: 0; height: 100vh;
+    overflow-y: auto;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .nav-header {
+    font-size: 13px; font-weight: 700; letter-spacing: .06em;
+    color: var(--text); padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border); margin-bottom: 8px;
+  }
+  .nav-header span { color: var(--accent); }
+
+   
+  .nav-section {
+    margin-bottom: 4px;
+  }
+  .nav-section-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 20px;
+    cursor: pointer;
+    user-select: none;
+    color: var(--text);
+    font-size: 12px; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase;
+    transition: color .15s;
+  }
+  .nav-section-header:hover { color: var(--accent); }
+  .nav-section-header .version-tag {
+    font-size: 9px; padding: 1px 5px;
+    background: var(--accent-dim); color: var(--accent);
+    border-radius: 3px; font-family: var(--mono);
+  }
+  .nav-section-header .chevron {
+    margin-left: auto; transition: transform .2s;
+    color: var(--text-muted); font-size: 10px;
+  }
+  .nav-section.collapsed .chevron { transform: rotate(-90deg); }
+  .nav-section-items { overflow: hidden; }
+  .nav-section.collapsed .nav-section-items { display: none; }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 20px 6px 28px;
+    text-decoration: none; color: var(--text-muted);
+    font-size: 12px; font-family: var(--mono);
+    transition: color .15s, background .15s;
+    border-left: 2px solid transparent;
+    cursor: pointer;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface-2); border-left-color: var(--accent); }
+  .nav-item.active { color: var(--text); border-left-color: var(--accent); background: var(--accent-dim); }
+  .nav-badge {
+    font-size: 9px; font-weight: 500; padding: 1px 5px;
+    border-radius: 3px; flex-shrink: 0;
+  }
+  .nav-uri { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+   
+  main { padding: 48px 64px; min-width: 0; }
+
+  .page-header {
+    display: flex; align-items: flex-end; gap: 32px;
+    margin-bottom: 32px;
+  }
+  .page-header-text { flex: 1; }
+  .page-header h1 {
+    font-size: 40px; font-weight: 800; letter-spacing: -.02em;
+    background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; margin-bottom: 6px;
+  }
+  .page-header p { color: var(--text-muted); font-size: 14px; }
+
+   
+  .search-bar {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 0 16px;
+    margin-bottom: 28px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .search-input-wrap {
+    flex: 1; min-width: 180px;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0 14px;
+    transition: border-color .15s;
+  }
+  .search-input-wrap:focus-within { border-color: var(--accent); }
+  .search-icon { color: var(--text-muted); font-size: 14px; flex-shrink: 0; }
+  .search-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+    padding: 10px 0;
+  }
+  .search-input::placeholder { color: var(--text-muted); }
+  .search-clear {
+    background: none; border: none; color: var(--text-muted);
+    cursor: pointer; font-size: 16px; padding: 0; line-height: 1;
+    display: none;
+  }
+  .search-clear.visible { display: block; }
+  .search-clear:hover { color: var(--text); }
+  .method-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mf-btn {
+    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    padding: 5px 10px; border-radius: 5px; letter-spacing: .06em;
+    cursor: pointer; border: 1px solid transparent;
+    transition: opacity .15s, border-color .15s;
+    opacity: .45;
+  }
+  .mf-btn.active { opacity: 1; border-color: currentColor; }
+  .mf-btn.mf-all { color: var(--text); background: var(--surface-2); border-color: var(--border); opacity: 1; }
+  .mf-btn.mf-all.active { border-color: var(--accent); color: var(--accent); }
+  .mf-btn.mf-get  { color: var(--get);    background: var(--get-bg); }
+  .mf-btn.mf-post { color: var(--post);   background: var(--post-bg); }
+  .mf-btn.mf-put  { color: var(--put);    background: var(--put-bg); }
+  .mf-btn.mf-del  { color: var(--delete); background: var(--del-bg); }
+  .no-results {
+    display: none; text-align: center; padding: 48px 0;
+    color: var(--text-muted); font-size: 14px;
+  }
+  .no-results.visible { display: block; }
+
+   
+  .section-page { display: none; }
+  .section-page.active { display: block; }
+
+  .section-title-bar {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 32px; padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-title-bar h2 { font-size: 24px; font-weight: 700; }
+  .section-version {
+    font-family: var(--mono); font-size: 11px;
+    padding: 3px 8px; border-radius: 5px;
+    background: var(--accent-dim); color: var(--accent);
+  }
+  .section-count { color: var(--text-muted); font-size: 13px; margin-left: auto; }
+
+   
+  .endpoint {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; margin-bottom: 16px; overflow: hidden;
+    transition: border-color .2s;
+  }
+  .endpoint:hover { border-color: var(--accent); }
+  .endpoint-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px 20px; cursor: pointer; user-select: none;
+  }
+  .method-badge {
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    padding: 3px 8px; border-radius: 5px; letter-spacing: .06em; flex-shrink: 0;
+  }
+  .method-get    { color: var(--get);    background: var(--get-bg); }
+  .method-post   { color: var(--post);   background: var(--post-bg);}
+  .method-put    { color: var(--put);    background: var(--put-bg); }
+  .method-delete { color: var(--delete); background: var(--del-bg); }
+  .endpoint-uri  { font-family: var(--mono); font-size: 14px; color: var(--text); flex: 1; }
+  .endpoint-summary { color: var(--text-muted); font-size: 12px; text-align: right; }
+  .endpoint-body { border-top: 1px solid var(--border); padding: 20px; display: none; }
+  .endpoint.open .endpoint-body { display: block; }
+  .endpoint-description { color: var(--text-muted); font-size: 13px; line-height: 1.7; margin-bottom: 24px; }
+
+   
+  .section { margin-bottom: 24px; }
+  .section-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
+  }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 480px; }
+  th {
+    text-align: left; padding: 7px 10px; color: var(--text-muted);
+    font-weight: 500; font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; border-bottom: 1px solid var(--border);
+  }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; line-height: 1.5; }
+  tr:last-child td { border-bottom: none; }
+  .param-name { font-family: var(--mono); color: var(--text); }
+  .param-type { font-family: var(--mono); color: var(--accent); font-size: 11px; }
+  .param-desc { color: var(--text-muted); }
+  .badge-required { background: rgba(244,63,94,.12); color: var(--danger); font-size: 10px; padding: 2px 5px; border-radius: 3px; }
+  .badge-optional { background: var(--surface-2); color: var(--text-muted); font-size: 10px; padding: 2px 5px; border-radius: 3px; }
+  .response-item { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; }
+  .response-header { display: flex; align-items: center; gap: 10px; padding: 9px 14px; }
+  .status-badge { font-family: var(--mono); font-size: 13px; font-weight: 500; }
+  .status-success { color: var(--success); }
+  .status-client-error { color: var(--warn); }
+  .status-server-error { color: var(--danger); }
+  .response-desc { color: var(--text-muted); font-size: 13px; }
+  pre { background: #070710; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.7; color: #a5b4fc; }
+  .mw-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mw-tag { background: var(--accent-dim); color: var(--accent); font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 4px; }
+  ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+   
+  @media (max-width: 1024px) {
+    body { grid-template-columns: 240px 1fr; }
+    main { padding: 40px 32px; }
+  }
+
+  @media (max-width: 768px) {
+    body { grid-template-columns: 1fr; }
+    .menu-toggle { display: flex; }
+    nav {
+      position: fixed; top: 0; left: 0; z-index: 160;
+      width: 280px; height: 100vh;
+      transform: translateX(-100%);
+      transition: transform .25s ease;
+    }
+    nav.open { transform: translateX(0); }
+    .nav-header { padding-left: 60px; }
+    main { padding: 64px 20px 40px; }
+    .page-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+    .page-header h1 { font-size: 28px; }
+    .search-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+    .method-filters { justify-content: flex-start; }
+    .endpoint-header { flex-wrap: wrap; gap: 8px; }
+    .endpoint-summary { text-align: left; width: 100%; }
+    .section-title-bar { flex-wrap: wrap; gap: 8px; }
+    .section-count { margin-left: 0; }
+  }
+
+  @media (max-width: 480px) {
+    main { padding: 56px 12px 32px; }
+    .page-header h1 { font-size: 22px; }
+    .endpoint-uri { font-size: 12px; }
+    pre { font-size: 11px; padding: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<button class="menu-toggle" onclick="toggleNav()" aria-label="Toggle menu">☰</button>
+<div class="nav-overlay" id="nav-overlay" onclick="closeNav()"></div>
+
+<nav id="sidebar">
+  <div class="nav-header">API LAB LIS DOC</div>
+
+  
+    
+  <div class="nav-section" id="nav-sec-api">
+    <div class="nav-section-header" onclick="toggleNavSection('nav-sec-api')">
+      <span>Api</span>
+      
+      <span class="chevron">▼</span>
+    </div>
+    <div class="nav-section-items">
+      
+      <div class="nav-item" onclick="showEndpoint('api-get-user', 'sec-api')">
+        <span class="nav-badge method-badge method-get">GET</span>
+        <span class="nav-uri">/user</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('api-get-catalogo', 'sec-api')">
+        <span class="nav-badge method-badge method-get">GET</span>
+        <span class="nav-uri">/catalogo</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('api-post-catalogo', 'sec-api')">
+        <span class="nav-badge method-badge method-post">POST</span>
+        <span class="nav-uri">/catalogo</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('api-put-catalogo-item', 'sec-api')">
+        <span class="nav-badge method-badge method-put">PUT</span>
+        <span class="nav-uri">/catalogo/{item}</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('api-delete-catalogo-id', 'sec-api')">
+        <span class="nav-badge method-badge method-delete">DELETE</span>
+        <span class="nav-uri">/catalogo/{id}</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('api-get-catalogo-examenId-estructura', 'sec-api')">
+        <span class="nav-badge method-badge method-get">GET</span>
+        <span class="nav-uri">/catalogo/{examenId}/estructura</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('api-post-catalogo-examenId-estructura', 'sec-api')">
+        <span class="nav-badge method-badge method-post">POST</span>
+        <span class="nav-uri">/catalogo/{examenId}/estructura</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('api-put-catalogo-examenId-estructura-estructuraExamenId', 'sec-api')">
+        <span class="nav-badge method-badge method-put">PUT</span>
+        <span class="nav-uri">/catalogo/{examenId}/estructura/{estructuraExamenId}</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('api-delete-catalogo-nodos-id', 'sec-api')">
+        <span class="nav-badge method-badge method-delete">DELETE</span>
+        <span class="nav-uri">/catalogo/nodos/{id}</span>
+      </div>
+      
+    </div>
+  </div>
+  
+</nav>
+
+<main>
+  <div class="page-header">
+    <div class="page-header-text">
+      <h1>API LAB LIS DOC</h1>
+      <p>
+        1 section(s) ·
+        9 + 0 endpoints · Generated by apidocgen
+      </p>
+    </div>
+  </div>
+
+  <div class="search-bar">
+    <div class="search-input-wrap">
+      <span class="search-icon">⌕</span>
+      <input class="search-input" id="search-input" type="search" placeholder="Buscar endpoint…" oninput="filterEndpoints()" autocomplete="off">
+      <button class="search-clear" id="search-clear" onclick="clearSearch()">×</button>
+    </div>
+    <div class="method-filters">
+      <button class="mf-btn mf-all active" data-method="ALL" onclick="setMethodFilter(this)">ALL</button>
+      <button class="mf-btn mf-get"  data-method="GET"    onclick="setMethodFilter(this)">GET</button>
+      <button class="mf-btn mf-post" data-method="POST"   onclick="setMethodFilter(this)">POST</button>
+      <button class="mf-btn mf-put"  data-method="PUT"    onclick="setMethodFilter(this)">PUT</button>
+      <button class="mf-btn mf-del"  data-method="DELETE" onclick="setMethodFilter(this)">DELETE</button>
+    </div>
+  </div>
+
+  
+    
+  <div class="section-page" id="sec-api">
+    <div class="section-title-bar">
+      <h2>Api</h2>
+      
+      <span class="section-count">9 endpoints</span>
+    </div>
+
+    
+    <div class="endpoint" id="api-get-user">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-uri">/user</span>
+        <span class="endpoint-summary">Obtener información del usuario autenticado</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Retorna los datos del usuario actualmente autenticado. Este endpoint requiere que el usuario esté autenticado mediante un token válido. Es comúnmente utilizado para obtener el perfil del usuario en sesión, incluyendo sus datos personales y atributos asociados.</p>
+
+        
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">Solicitud exitosa. Retorna el objeto del usuario autenticado con todos sus atributos visibles.</span>
+            </div>
+            <pre>{&#34;id&#34;: 1, &#34;name&#34;: &#34;John Doe&#34;, &#34;email&#34;: &#34;john.doe@example.com&#34;, &#34;email_verified_at&#34;: &#34;2024-01-01T00:00:00.000000Z&#34;, &#34;created_at&#34;: &#34;2024-01-01T00:00:00.000000Z&#34;, &#34;updated_at&#34;: &#34;2024-01-01T00:00:00.000000Z&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">401</span>
+              <span class="response-desc">No autenticado. El token de autenticación es inválido, ha expirado o no fue proporcionado.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;Unauthenticated.&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="api-get-catalogo">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-uri">/catalogo</span>
+        <span class="endpoint-summary">Obtiene la lista completa de elementos del catálogo</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Este endpoint retorna todos los elementos registrados en el catálogo del sistema. Realiza una consulta general sin filtros obligatorios, devolviendo la colección completa de ítems disponibles. Puede ser utilizado para poblar interfaces de selección, listados de productos o cualquier vista que requiera mostrar el inventario del catálogo.</p>
+
+        
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">Solicitud exitosa. Retorna la lista de elementos del catálogo.</span>
+            </div>
+            <pre>{&#34;data&#34;: [{&#34;id&#34;: 1, &#34;nombre&#34;: &#34;Producto A&#34;, &#34;descripcion&#34;: &#34;Descripción del producto A&#34;, &#34;precio&#34;: 99.99, &#34;categoria&#34;: &#34;Electrónica&#34;, &#34;activo&#34;: true, &#34;created_at&#34;: &#34;2024-01-15T10:00:00Z&#34;, &#34;updated_at&#34;: &#34;2024-01-15T10:00:00Z&#34;}, {&#34;id&#34;: 2, &#34;nombre&#34;: &#34;Producto B&#34;, &#34;descripcion&#34;: &#34;Descripción del producto B&#34;, &#34;precio&#34;: 49.99, &#34;categoria&#34;: &#34;Ropa&#34;, &#34;activo&#34;: true, &#34;created_at&#34;: &#34;2024-01-16T12:00:00Z&#34;, &#34;updated_at&#34;: &#34;2024-01-16T12:00:00Z&#34;}]}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">401</span>
+              <span class="response-desc">No autorizado. El token de autenticación no fue proporcionado o es inválido.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;Unauthenticated.&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">403</span>
+              <span class="response-desc">Prohibido. El usuario autenticado no tiene permisos para acceder al catálogo.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;This action is unauthorized.&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor. Ocurrió un problema inesperado al procesar la solicitud.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;Server Error&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="api-post-catalogo">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-uri">/catalogo</span>
+        <span class="endpoint-summary">Crear un nuevo ítem en el catálogo</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Este endpoint permite registrar un nuevo ítem en el catálogo del sistema. Se envían los datos del producto o servicio mediante una solicitud POST. El servidor valida los campos requeridos y, si todo es correcto, persiste el nuevo registro en la base de datos y retorna el ítem creado con su identificador asignado. Si ocurre un error de validación, se retornan los mensajes de error correspondientes.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">nombre</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Nombre del ítem del catálogo</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">descripcion</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Descripción detallada del ítem del catálogo</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">precio</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Precio del ítem del catálogo, debe ser un valor numérico mayor o igual a cero</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">categoria_id</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador de la categoría a la que pertenece el ítem; debe existir en la tabla de categorías</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">imagen</td>
+                <td class="param-type">file</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Imagen representativa del ítem; debe ser un archivo de imagen válido con tamaño máximo de 2MB</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">activo</td>
+                <td class="param-type">boolean</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Indica si el ítem está activo o inactivo en el catálogo; por defecto se considera activo</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">stock</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Cantidad disponible en inventario del ítem del catálogo</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">201</span>
+              <span class="response-desc">El ítem fue creado exitosamente en el catálogo. Se retorna el objeto del ítem recién creado con todos sus atributos.</span>
+            </div>
+            <pre>{&#34;id&#34;: 1, &#34;nombre&#34;: &#34;Producto Ejemplo&#34;, &#34;descripcion&#34;: &#34;Descripción del producto&#34;, &#34;precio&#34;: 150.00, &#34;categoria_id&#34;: 3, &#34;imagen&#34;: &#34;uploads/catalogo/imagen.jpg&#34;, &#34;activo&#34;: true, &#34;stock&#34;: 100, &#34;created_at&#34;: &#34;2024-06-01T12:00:00.000000Z&#34;, &#34;updated_at&#34;: &#34;2024-06-01T12:00:00.000000Z&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">422</span>
+              <span class="response-desc">Error de validación. Uno o más campos no cumplen con las reglas requeridas. Se retorna un objeto con los mensajes de error por campo.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;The given data was invalid.&#34;, &#34;errors&#34;: {&#34;nombre&#34;: [&#34;The nombre field is required.&#34;], &#34;precio&#34;: [&#34;The precio field is required.&#34;], &#34;categoria_id&#34;: [&#34;The selected categoria_id is invalid.&#34;]}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">401</span>
+              <span class="response-desc">No autenticado. El token de autorización no fue proporcionado o es inválido.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;Unauthenticated.&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">403</span>
+              <span class="response-desc">No autorizado. El usuario autenticado no tiene permisos para crear ítems en el catálogo.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;This action is unauthorized.&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor. Ocurrió un problema inesperado al procesar la solicitud.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;Server Error&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Request Example</div>
+          <pre>{&#34;nombre&#34;: &#34;Producto Ejemplo&#34;, &#34;descripcion&#34;: &#34;Descripción detallada del producto&#34;, &#34;precio&#34;: 150.00, &#34;categoria_id&#34;: 3, &#34;activo&#34;: true, &#34;stock&#34;: 100}</pre>
+        </div>
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="api-put-catalogo-item">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-put">PUT</span>
+        <span class="endpoint-uri">/catalogo/{item}</span>
+        <span class="endpoint-summary">Actualiza un ítem existente en el catálogo</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Este endpoint permite actualizar los datos de un ítem específico del catálogo mediante su identificador. Se realiza una operación de actualización completa (PUT) sobre el recurso indicado en la ruta. El ítem debe existir previamente en el sistema; de lo contrario, se retornará un error 404. Dependiendo de la lógica de negocio, puede requerirse autenticación y permisos adecuados para realizar la modificación.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">item</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único del ítem del catálogo que se desea actualizar. Se pasa como parámetro de ruta (path parameter).</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">nombre</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Nombre o título del ítem del catálogo.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">descripcion</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Descripción detallada del ítem del catálogo.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">precio</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Precio asociado al ítem del catálogo. Debe ser un valor numérico mayor o igual a cero.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">categoria_id</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Identificador de la categoría a la que pertenece el ítem. Debe existir en la tabla de categorías.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">activo</td>
+                <td class="param-type">boolean</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Indica si el ítem del catálogo está activo o inactivo.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">imagen</td>
+                <td class="param-type">file</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Archivo de imagen representativa del ítem. Se aceptan formatos jpg, jpeg, png y webp con un tamaño máximo de 2 MB.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">El ítem del catálogo fue actualizado exitosamente. Retorna el objeto actualizado con sus datos más recientes.</span>
+            </div>
+            <pre>{&#34;success&#34;: true, &#34;message&#34;: &#34;Ítem actualizado correctamente&#34;, &#34;data&#34;: {&#34;id&#34;: 1, &#34;nombre&#34;: &#34;Producto Ejemplo&#34;, &#34;descripcion&#34;: &#34;Descripción actualizada del producto&#34;, &#34;precio&#34;: 150.00, &#34;categoria_id&#34;: 3, &#34;activo&#34;: true, &#34;imagen&#34;: &#34;storage/catalogo/producto-ejemplo.jpg&#34;, &#34;updated_at&#34;: &#34;2024-06-01T12:00:00.000000Z&#34;, &#34;created_at&#34;: &#34;2024-01-15T08:30:00.000000Z&#34;}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">El ítem especificado no fue encontrado en el catálogo.</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;Ítem no encontrado&#34;, &#34;data&#34;: null}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">422</span>
+              <span class="response-desc">Error de validación. Uno o más campos enviados no cumplen con las reglas de validación requeridas.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;The given data was invalid.&#34;, &#34;errors&#34;: {&#34;nombre&#34;: [&#34;El campo nombre es obligatorio.&#34;], &#34;precio&#34;: [&#34;El campo precio debe ser un número mayor o igual a 0.&#34;]}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">401</span>
+              <span class="response-desc">No autenticado. El usuario no ha iniciado sesión o el token de autenticación es inválido o ha expirado.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;Unauthenticated.&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">403</span>
+              <span class="response-desc">Acceso prohibido. El usuario autenticado no tiene permisos para actualizar ítems del catálogo.</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;No tienes permisos para realizar esta acción.&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor. Ocurrió un problema inesperado al procesar la solicitud.</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;Error interno del servidor. Intente nuevamente más tarde.&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Request Example</div>
+          <pre>{&#34;nombre&#34;: &#34;Producto Ejemplo Actualizado&#34;, &#34;descripcion&#34;: &#34;Nueva descripción del producto actualizado&#34;, &#34;precio&#34;: 199.99, &#34;categoria_id&#34;: 3, &#34;activo&#34;: true, &#34;imagen&#34;: &#34;&lt;archivo_binario&gt;&#34;}</pre>
+        </div>
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="api-delete-catalogo-id">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-delete">DELETE</span>
+        <span class="endpoint-uri">/catalogo/{id}</span>
+        <span class="endpoint-summary">Elimina un ítem del catálogo por su ID</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Este endpoint permite eliminar de forma permanente un ítem del catálogo utilizando su identificador único. Se realiza una eliminación física del registro en la base de datos. Si el recurso no existe, se retorna un error 404. La operación es irreversible y puede tener efectos secundarios si el ítem está relacionado con otros registros del sistema.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">id</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único del ítem del catálogo que se desea eliminar. Debe corresponder a un registro existente en la base de datos.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">El ítem del catálogo fue eliminado exitosamente</span>
+            </div>
+            <pre>{&#34;success&#34;: true, &#34;message&#34;: &#34;Ítem del catálogo eliminado correctamente&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">204</span>
+              <span class="response-desc">El ítem fue eliminado exitosamente y no se retorna contenido en la respuesta</span>
+            </div>
+            
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">No se encontró ningún ítem del catálogo con el ID proporcionado</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;Ítem no encontrado&#34;, &#34;error&#34;: &#34;No query results for model [ItemCatalogo] with ID {id}&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">401</span>
+              <span class="response-desc">El usuario no está autenticado o el token de acceso es inválido o ha expirado</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;Unauthenticated.&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">403</span>
+              <span class="response-desc">El usuario autenticado no tiene permisos suficientes para eliminar ítems del catálogo</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;This action is unauthorized.&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">409</span>
+              <span class="response-desc">No se puede eliminar el ítem porque está siendo referenciado por otros registros del sistema (conflicto de integridad referencial)</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;No es posible eliminar el ítem debido a dependencias existentes&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor al intentar procesar la eliminación</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;Internal Server Error&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="api-get-catalogo-examenId-estructura">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-uri">/catalogo/{examenId}/estructura</span>
+        <span class="endpoint-summary">Obtiene la estructura jerárquica (árbol) de un examen del catálogo</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Recupera la estructura completa en forma de árbol de un examen específico del catálogo, identificado por su ID. Retorna la organización jerárquica del examen, incluyendo secciones, subsecciones, preguntas y demás elementos que conforman su estructura. Este endpoint es útil para visualizar o procesar la composición interna de un examen de forma anidada.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">examenId</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único del examen en el catálogo cuya estructura jerárquica se desea obtener</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">Estructura jerárquica del examen obtenida exitosamente</span>
+            </div>
+            <pre>{&#34;data&#34;: {&#34;id&#34;: 1, &#34;nombre&#34;: &#34;Examen de Matemáticas&#34;, &#34;descripcion&#34;: &#34;Examen general de matemáticas&#34;, &#34;secciones&#34;: [{&#34;id&#34;: 10, &#34;nombre&#34;: &#34;Álgebra&#34;, &#34;orden&#34;: 1, &#34;subsecciones&#34;: [{&#34;id&#34;: 100, &#34;nombre&#34;: &#34;Ecuaciones lineales&#34;, &#34;orden&#34;: 1, &#34;preguntas&#34;: [{&#34;id&#34;: 1001, &#34;texto&#34;: &#34;Resuelve 2x &#43; 3 = 7&#34;, &#34;tipo&#34;: &#34;abierta&#34;, &#34;puntaje&#34;: 5}]}]}]}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">El examen con el ID proporcionado no existe en el catálogo</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;No se encontró el examen con el ID especificado.&#34;, &#34;error&#34;: &#34;Not Found&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">401</span>
+              <span class="response-desc">El usuario no está autenticado o el token es inválido</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;Unauthenticated.&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">403</span>
+              <span class="response-desc">El usuario autenticado no tiene permisos para visualizar la estructura de este examen</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;This action is unauthorized.&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor al procesar la solicitud</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;Error interno del servidor.&#34;, &#34;error&#34;: &#34;Internal Server Error&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="api-post-catalogo-examenId-estructura">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-uri">/catalogo/{examenId}/estructura</span>
+        <span class="endpoint-summary">Crear un nuevo nodo en la estructura del árbol de catálogo para un examen específico</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Este endpoint permite crear un nuevo elemento en la estructura jerárquica (árbol) del catálogo asociado a un examen determinado. Se utiliza para definir la organización interna del catálogo, como secciones, categorías o ítems dentro del examen indicado por su identificador. Al crear el nodo, este queda vinculado al examen correspondiente y se integra dentro de la jerarquía existente del catálogo.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">examenId</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único del examen al cual pertenece la estructura del catálogo. Se pasa como parámetro de ruta en la URL.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">nombre</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Nombre descriptivo del nodo o elemento que se va a crear dentro de la estructura del catálogo.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">parent_id</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Identificador del nodo padre al que pertenece este elemento. Si es null o no se envía, el nodo se crea en el nivel raíz de la estructura.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">orden</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Posición u orden del nodo dentro de su nivel jerárquico. Permite controlar el orden de presentación de los elementos.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">tipo</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Tipo de nodo a crear en el catálogo. Puede ser una sección, categoría o ítem dependiendo del nivel jerárquico.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">descripcion</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Descripción adicional o detalle del nodo que se está creando en la estructura del catálogo.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">activo</td>
+                <td class="param-type">boolean</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Indica si el nodo estará activo y visible dentro de la estructura del catálogo. Por defecto es true.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">201</span>
+              <span class="response-desc">El nodo de la estructura del catálogo fue creado exitosamente. Retorna los datos del nodo recién creado.</span>
+            </div>
+            <pre>{&#34;success&#34;: true, &#34;message&#34;: &#34;Nodo creado exitosamente&#34;, &#34;data&#34;: {&#34;id&#34;: 15, &#34;examen_id&#34;: 3, &#34;parent_id&#34;: null, &#34;nombre&#34;: &#34;Sección Principal&#34;, &#34;tipo&#34;: &#34;seccion&#34;, &#34;orden&#34;: 1, &#34;descripcion&#34;: &#34;Primera sección del examen&#34;, &#34;activo&#34;: true, &#34;created_at&#34;: &#34;2024-01-15T10:30:00.000000Z&#34;, &#34;updated_at&#34;: &#34;2024-01-15T10:30:00.000000Z&#34;}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">422</span>
+              <span class="response-desc">Error de validación. Los datos enviados no cumplen con las reglas de validación requeridas.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;The given data was invalid.&#34;, &#34;errors&#34;: {&#34;nombre&#34;: [&#34;El campo nombre es obligatorio.&#34;], &#34;parent_id&#34;: [&#34;El parent_id seleccionado no es válido.&#34;]}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">El examen con el identificador proporcionado no fue encontrado en el sistema.</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;Examen no encontrado.&#34;, &#34;data&#34;: null}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">403</span>
+              <span class="response-desc">El usuario autenticado no tiene permisos suficientes para crear elementos en la estructura del catálogo.</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;No tienes permiso para realizar esta acción.&#34;, &#34;data&#34;: null}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">401</span>
+              <span class="response-desc">El usuario no está autenticado. Se requiere un token de autorización válido.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;Unauthenticated.&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor al intentar crear el nodo en la estructura del catálogo.</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;Error interno del servidor.&#34;, &#34;data&#34;: null}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Request Example</div>
+          <pre>{&#34;nombre&#34;: &#34;Sección Principal&#34;, &#34;parent_id&#34;: null, &#34;orden&#34;: 1, &#34;tipo&#34;: &#34;seccion&#34;, &#34;descripcion&#34;: &#34;Primera sección del examen de ejemplo&#34;, &#34;activo&#34;: true}</pre>
+        </div>
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="api-put-catalogo-examenId-estructura-estructuraExamenId">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-put">PUT</span>
+        <span class="endpoint-uri">/catalogo/{examenId}/estructura/{estructuraExamenId}</span>
+        <span class="endpoint-summary">Actualiza un nodo de estructura dentro de un examen del catálogo</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Permite modificar un elemento específico de la estructura jerárquica (árbol) de un examen del catálogo. El endpoint recibe el identificador del examen y el identificador del nodo de estructura a actualizar, aplicando los cambios enviados en el cuerpo de la solicitud. Este endpoint es útil para reorganizar, renombrar o modificar propiedades de secciones, categorías o nodos dentro de la estructura del examen.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">examenId</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único del examen en el catálogo al que pertenece la estructura</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">estructuraExamenId</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único del nodo de estructura del examen que se desea actualizar</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">nombre</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Nombre o título del nodo de estructura del examen</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">descripcion</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Descripción detallada del nodo de estructura</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">orden</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Posición u orden del nodo dentro del árbol de estructura del examen</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">parent_id</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Identificador del nodo padre dentro del árbol jerárquico, null si es nodo raíz</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">activo</td>
+                <td class="param-type">boolean</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Indica si el nodo de estructura está activo o inactivo dentro del catálogo</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">El nodo de estructura del examen fue actualizado exitosamente, retorna el objeto actualizado</span>
+            </div>
+            <pre>{&#34;success&#34;: true, &#34;message&#34;: &#34;Estructura actualizada correctamente&#34;, &#34;data&#34;: {&#34;id&#34;: 12, &#34;examen_id&#34;: 5, &#34;nombre&#34;: &#34;Sección A&#34;, &#34;descripcion&#34;: &#34;Primera sección del examen&#34;, &#34;orden&#34;: 1, &#34;parent_id&#34;: null, &#34;activo&#34;: true, &#34;created_at&#34;: &#34;2024-01-15T10:00:00Z&#34;, &#34;updated_at&#34;: &#34;2024-06-10T14:30:00Z&#34;}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">El examen o el nodo de estructura especificado no fue encontrado en el catálogo</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;Recurso no encontrado&#34;, &#34;errors&#34;: {&#34;detail&#34;: &#34;El examen o la estructura con el identificador proporcionado no existe&#34;}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">422</span>
+              <span class="response-desc">Error de validación, los datos enviados no cumplen con las reglas requeridas</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;Los datos proporcionados no son válidos&#34;, &#34;errors&#34;: {&#34;nombre&#34;: [&#34;El campo nombre no puede exceder 255 caracteres&#34;], &#34;parent_id&#34;: [&#34;El parent_id seleccionado no existe&#34;]}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">401</span>
+              <span class="response-desc">No autenticado, el token de acceso es inválido o ha expirado</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;No autenticado&#34;, &#34;errors&#34;: {&#34;detail&#34;: &#34;Token inválido o expirado&#34;}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">403</span>
+              <span class="response-desc">Sin permisos suficientes para modificar la estructura del catálogo</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;Acceso denegado&#34;, &#34;errors&#34;: {&#34;detail&#34;: &#34;No tiene permisos para realizar esta acción&#34;}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor al procesar la actualización</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;Error interno del servidor&#34;, &#34;errors&#34;: {&#34;detail&#34;: &#34;Ocurrió un error inesperado, intente nuevamente más tarde&#34;}}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Request Example</div>
+          <pre>{&#34;nombre&#34;: &#34;Sección A - Modificada&#34;, &#34;descripcion&#34;: &#34;Primera sección actualizada del examen de matemáticas&#34;, &#34;orden&#34;: 1, &#34;parent_id&#34;: null, &#34;activo&#34;: true}</pre>
+        </div>
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="api-delete-catalogo-nodos-id">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-delete">DELETE</span>
+        <span class="endpoint-uri">/catalogo/nodos/{id}</span>
+        <span class="endpoint-summary">Elimina un nodo específico del árbol de catálogo por su ID</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Este endpoint permite eliminar de forma permanente un nodo del árbol de catálogo identificado por su ID. La operación es destructiva e irreversible. Dependiendo de la lógica de negocio implementada, puede eliminar también los nodos hijos asociados en cascada, o bien restringir la eliminación si el nodo tiene dependencias. Se recomienda verificar que el nodo no tenga elementos vinculados antes de proceder con la eliminación.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">id</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único del nodo del catálogo que se desea eliminar. Debe corresponder a un nodo existente en la base de datos.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">El nodo fue eliminado exitosamente del catálogo.</span>
+            </div>
+            <pre>{&#34;success&#34;: true, &#34;message&#34;: &#34;Nodo eliminado correctamente&#34;, &#34;data&#34;: null}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">204</span>
+              <span class="response-desc">El nodo fue eliminado exitosamente. No se retorna contenido en el cuerpo de la respuesta.</span>
+            </div>
+            
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">No se encontró ningún nodo con el ID proporcionado.</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;Nodo no encontrado&#34;, &#34;errors&#34;: {&#34;id&#34;: [&#34;El nodo con el ID especificado no existe.&#34;]}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">409</span>
+              <span class="response-desc">Conflicto al intentar eliminar el nodo. El nodo tiene nodos hijos o dependencias activas que impiden su eliminación.</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;No es posible eliminar el nodo porque tiene elementos dependientes asociados.&#34;, &#34;errors&#34;: {&#34;id&#34;: [&#34;El nodo contiene nodos hijos o referencias activas.&#34;]}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">401</span>
+              <span class="response-desc">El usuario no está autenticado. Se requiere un token de acceso válido.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;Unauthenticated.&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">403</span>
+              <span class="response-desc">El usuario autenticado no tiene permisos suficientes para eliminar nodos del catálogo.</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;No tienes permiso para realizar esta acción.&#34;, &#34;errors&#34;: null}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">422</span>
+              <span class="response-desc">El ID proporcionado no cumple con las reglas de validación esperadas.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;The given data was invalid.&#34;, &#34;errors&#34;: {&#34;id&#34;: [&#34;El campo id debe ser un entero válido.&#34;]}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor al intentar procesar la eliminación del nodo.</span>
+            </div>
+            <pre>{&#34;success&#34;: false, &#34;message&#34;: &#34;Ha ocurrido un error interno. Por favor, intente más tarde.&#34;, &#34;errors&#34;: null}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+  </div>
+  
+  <div class="no-results" id="no-results">
+    No se encontraron endpoints que coincidan con la búsqueda.
+  </div>
+</main>
+
+<script>
+  function slugify(s) {
+    return s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  }
+
+  function toggleNav() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('nav-overlay').classList.toggle('open');
+  }
+  function closeNav() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('nav-overlay').classList.remove('open');
+  }
+
+  
+  function showSection(sectionId) {
+    document.querySelectorAll('.section-page').forEach(el => el.classList.remove('active'));
+    const target = document.getElementById(sectionId);
+    if (target) target.classList.add('active');
+  }
+
+  
+  function showEndpoint(endpointId, sectionId) {
+    showSection(sectionId);
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    const ep = document.getElementById(endpointId);
+    if (ep) {
+      ep.classList.add('open');
+      ep.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    closeNav();
+  }
+
+  function toggleNavSection(id) {
+    document.getElementById(id).classList.toggle('collapsed');
+  }
+
+  
+  let activeMethod = 'ALL';
+
+  function setMethodFilter(btn) {
+    activeMethod = btn.dataset.method;
+    document.querySelectorAll('.mf-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterEndpoints();
+  }
+
+  function clearSearch() {
+    document.getElementById('search-input').value = '';
+    document.getElementById('search-clear').classList.remove('visible');
+    filterEndpoints();
+  }
+
+  function filterEndpoints() {
+    const query = document.getElementById('search-input').value.trim().toLowerCase();
+    const clearBtn = document.getElementById('search-clear');
+    clearBtn.classList.toggle('visible', query.length > 0);
+
+    const isSearching = query.length > 0 || activeMethod !== 'ALL';
+    let anyVisible = false;
+
+    document.querySelectorAll('.section-page').forEach(section => {
+      let sectionHasVisible = false;
+      section.querySelectorAll('.endpoint').forEach(ep => {
+        const uri     = (ep.querySelector('.endpoint-uri')?.textContent || '').toLowerCase();
+        const summary = (ep.querySelector('.endpoint-summary')?.textContent || '').toLowerCase();
+        const method  = (ep.querySelector('.method-badge')?.textContent || '').trim().toUpperCase();
+        const matchText   = !query || uri.includes(query) || summary.includes(query);
+        const matchMethod = activeMethod === 'ALL' || method === activeMethod;
+        const visible = matchText && matchMethod;
+        ep.style.display = visible ? '' : 'none';
+        if (visible) { sectionHasVisible = true; anyVisible = true; }
+      });
+      section.style.display = (!isSearching || sectionHasVisible) ? '' : 'none';
+      if (isSearching && sectionHasVisible) section.classList.add('active');
+    });
+
+    if (isSearching) {
+      document.querySelectorAll('.section-page').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.section-page').forEach(s => {
+        if (s.style.display !== 'none') s.classList.add('active');
+      });
+    } else {
+      const first = document.querySelector('.section-page');
+      document.querySelectorAll('.section-page').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = '';
+        s.querySelectorAll('.endpoint').forEach(ep => ep.style.display = '');
+      });
+      if (first) first.classList.add('active');
+    }
+
+    document.getElementById('no-results').classList.toggle('visible', isSearching && !anyVisible);
+  }
+
+  
+  const firstSection = document.querySelector('.section-page');
+  if (firstSection) firstSection.classList.add('active');
+
+  
+  const firstEndpoint = document.querySelector('.section-page.active .endpoint');
+  if (firstEndpoint) firstEndpoint.classList.add('open');
+</script>
+</body>
+</html>

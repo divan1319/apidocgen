@@ -90,7 +90,15 @@ func RunGenerate(req GenerateRequest, log io.Writer) (*GenerateResult, error) {
 		return nil, err
 	}
 
-	files := splitTrim(proj.Routes, ",")
+	rawFiles := splitTrim(proj.Routes, ",")
+	files := make([]string, len(rawFiles))
+	for i, f := range rawFiles {
+		if filepath.IsAbs(f) {
+			files[i] = f
+		} else {
+			files[i] = filepath.Join(proj.Root, f)
+		}
+	}
 
 	fmt.Fprintf(log, "→ Resolviendo archivos...\n")
 	allFiles, err := p.ResolveIncludes(files)

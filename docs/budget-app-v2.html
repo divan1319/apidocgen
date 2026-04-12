@@ -1,0 +1,1256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Budget API DOC V2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface-2: #1a1a24;
+    --border: #2a2a3a;
+    --text: #e8e8f0;
+    --text-muted: #6b6b80;
+    --accent: #7c6af7;
+    --accent-dim: rgba(124,106,247,0.12);
+    --get:    #22d3a5; --get-bg: rgba(34,211,165,0.08);
+    --post:   #f97316; --post-bg:rgba(249,115,22,0.08);
+    --put:    #eab308; --put-bg: rgba(234,179,8,0.08);
+    --delete: #f43f5e; --del-bg: rgba(244,63,94,0.08);
+    --success:#22d3a5; --warn:#f97316; --danger:#f43f5e;
+    --radius: 8px;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 100vh;
+  }
+
+   
+  .menu-toggle {
+    display: none;
+    position: fixed; top: 14px; left: 14px; z-index: 200;
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--text); border-radius: var(--radius);
+    width: 40px; height: 40px;
+    align-items: center; justify-content: center;
+    cursor: pointer; font-size: 18px;
+  }
+  .nav-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 150;
+    background: rgba(0,0,0,.55);
+  }
+  .nav-overlay.open { display: block; }
+
+   
+  nav {
+    position: sticky; top: 0; height: 100vh;
+    overflow-y: auto;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .nav-header {
+    font-size: 13px; font-weight: 700; letter-spacing: .06em;
+    color: var(--text); padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border); margin-bottom: 8px;
+  }
+  .nav-header span { color: var(--accent); }
+
+   
+  .nav-section {
+    margin-bottom: 4px;
+  }
+  .nav-section-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 20px;
+    cursor: pointer;
+    user-select: none;
+    color: var(--text);
+    font-size: 12px; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase;
+    transition: color .15s;
+  }
+  .nav-section-header:hover { color: var(--accent); }
+  .nav-section-header .version-tag {
+    font-size: 9px; padding: 1px 5px;
+    background: var(--accent-dim); color: var(--accent);
+    border-radius: 3px; font-family: var(--mono);
+  }
+  .nav-section-header .chevron {
+    margin-left: auto; transition: transform .2s;
+    color: var(--text-muted); font-size: 10px;
+  }
+  .nav-section.collapsed .chevron { transform: rotate(-90deg); }
+  .nav-section-items { overflow: hidden; }
+  .nav-section.collapsed .nav-section-items { display: none; }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 20px 6px 28px;
+    text-decoration: none; color: var(--text-muted);
+    font-size: 12px; font-family: var(--mono);
+    transition: color .15s, background .15s;
+    border-left: 2px solid transparent;
+    cursor: pointer;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface-2); border-left-color: var(--accent); }
+  .nav-item.active { color: var(--text); border-left-color: var(--accent); background: var(--accent-dim); }
+  .nav-badge {
+    font-size: 9px; font-weight: 500; padding: 1px 5px;
+    border-radius: 3px; flex-shrink: 0;
+  }
+  .nav-uri { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+   
+  main { padding: 48px 64px; min-width: 0; }
+
+  .page-header {
+    display: flex; align-items: flex-end; gap: 32px;
+    margin-bottom: 32px;
+  }
+  .page-header-text { flex: 1; }
+  .page-header h1 {
+    font-size: 40px; font-weight: 800; letter-spacing: -.02em;
+    background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; margin-bottom: 6px;
+  }
+  .page-header p { color: var(--text-muted); font-size: 14px; }
+
+   
+  .search-bar {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 0 16px;
+    margin-bottom: 28px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .search-input-wrap {
+    flex: 1; min-width: 180px;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0 14px;
+    transition: border-color .15s;
+  }
+  .search-input-wrap:focus-within { border-color: var(--accent); }
+  .search-icon { color: var(--text-muted); font-size: 14px; flex-shrink: 0; }
+  .search-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+    padding: 10px 0;
+  }
+  .search-input::placeholder { color: var(--text-muted); }
+  .search-clear {
+    background: none; border: none; color: var(--text-muted);
+    cursor: pointer; font-size: 16px; padding: 0; line-height: 1;
+    display: none;
+  }
+  .search-clear.visible { display: block; }
+  .search-clear:hover { color: var(--text); }
+  .method-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mf-btn {
+    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    padding: 5px 10px; border-radius: 5px; letter-spacing: .06em;
+    cursor: pointer; border: 1px solid transparent;
+    transition: opacity .15s, border-color .15s;
+    opacity: .45;
+  }
+  .mf-btn.active { opacity: 1; border-color: currentColor; }
+  .mf-btn.mf-all { color: var(--text); background: var(--surface-2); border-color: var(--border); opacity: 1; }
+  .mf-btn.mf-all.active { border-color: var(--accent); color: var(--accent); }
+  .mf-btn.mf-get  { color: var(--get);    background: var(--get-bg); }
+  .mf-btn.mf-post { color: var(--post);   background: var(--post-bg); }
+  .mf-btn.mf-put  { color: var(--put);    background: var(--put-bg); }
+  .mf-btn.mf-del  { color: var(--delete); background: var(--del-bg); }
+  .no-results {
+    display: none; text-align: center; padding: 48px 0;
+    color: var(--text-muted); font-size: 14px;
+  }
+  .no-results.visible { display: block; }
+
+   
+  .section-page { display: none; }
+  .section-page.active { display: block; }
+
+  .section-title-bar {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 32px; padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-title-bar h2 { font-size: 24px; font-weight: 700; }
+  .section-version {
+    font-family: var(--mono); font-size: 11px;
+    padding: 3px 8px; border-radius: 5px;
+    background: var(--accent-dim); color: var(--accent);
+  }
+  .section-count { color: var(--text-muted); font-size: 13px; margin-left: auto; }
+
+   
+  .endpoint {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; margin-bottom: 16px; overflow: hidden;
+    transition: border-color .2s;
+  }
+  .endpoint:hover { border-color: var(--accent); }
+  .endpoint-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px 20px; cursor: pointer; user-select: none;
+  }
+  .method-badge {
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    padding: 3px 8px; border-radius: 5px; letter-spacing: .06em; flex-shrink: 0;
+  }
+  .method-get    { color: var(--get);    background: var(--get-bg); }
+  .method-post   { color: var(--post);   background: var(--post-bg);}
+  .method-put    { color: var(--put);    background: var(--put-bg); }
+  .method-delete { color: var(--delete); background: var(--del-bg); }
+  .endpoint-uri  { font-family: var(--mono); font-size: 14px; color: var(--text); flex: 1; }
+  .endpoint-summary { color: var(--text-muted); font-size: 12px; text-align: right; }
+  .endpoint-body { border-top: 1px solid var(--border); padding: 20px; display: none; }
+  .endpoint.open .endpoint-body { display: block; }
+  .endpoint-description { color: var(--text-muted); font-size: 13px; line-height: 1.7; margin-bottom: 24px; }
+
+   
+  .section { margin-bottom: 24px; }
+  .section-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
+  }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 480px; }
+  th {
+    text-align: left; padding: 7px 10px; color: var(--text-muted);
+    font-weight: 500; font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; border-bottom: 1px solid var(--border);
+  }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; line-height: 1.5; }
+  tr:last-child td { border-bottom: none; }
+  .param-name { font-family: var(--mono); color: var(--text); }
+  .param-type { font-family: var(--mono); color: var(--accent); font-size: 11px; }
+  .param-desc { color: var(--text-muted); }
+  .badge-required { background: rgba(244,63,94,.12); color: var(--danger); font-size: 10px; padding: 2px 5px; border-radius: 3px; }
+  .badge-optional { background: var(--surface-2); color: var(--text-muted); font-size: 10px; padding: 2px 5px; border-radius: 3px; }
+  .response-item { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; }
+  .response-header { display: flex; align-items: center; gap: 10px; padding: 9px 14px; }
+  .status-badge { font-family: var(--mono); font-size: 13px; font-weight: 500; }
+  .status-success { color: var(--success); }
+  .status-client-error { color: var(--warn); }
+  .status-server-error { color: var(--danger); }
+  .response-desc { color: var(--text-muted); font-size: 13px; }
+  pre { background: #070710; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.7; color: #a5b4fc; }
+  .mw-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mw-tag { background: var(--accent-dim); color: var(--accent); font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 4px; }
+  ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+   
+  @media (max-width: 1024px) {
+    body { grid-template-columns: 240px 1fr; }
+    main { padding: 40px 32px; }
+  }
+
+  @media (max-width: 768px) {
+    body { grid-template-columns: 1fr; }
+    .menu-toggle { display: flex; }
+    nav {
+      position: fixed; top: 0; left: 0; z-index: 160;
+      width: 280px; height: 100vh;
+      transform: translateX(-100%);
+      transition: transform .25s ease;
+    }
+    nav.open { transform: translateX(0); }
+    .nav-header { padding-left: 60px; }
+    main { padding: 64px 20px 40px; }
+    .page-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+    .page-header h1 { font-size: 28px; }
+    .search-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+    .method-filters { justify-content: flex-start; }
+    .endpoint-header { flex-wrap: wrap; gap: 8px; }
+    .endpoint-summary { text-align: left; width: 100%; }
+    .section-title-bar { flex-wrap: wrap; gap: 8px; }
+    .section-count { margin-left: 0; }
+  }
+
+  @media (max-width: 480px) {
+    main { padding: 56px 12px 32px; }
+    .page-header h1 { font-size: 22px; }
+    .endpoint-uri { font-size: 12px; }
+    pre { font-size: 11px; padding: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<button class="menu-toggle" onclick="toggleNav()" aria-label="Toggle menu">☰</button>
+<div class="nav-overlay" id="nav-overlay" onclick="closeNav()"></div>
+
+<nav id="sidebar">
+  <div class="nav-header">Budget API DOC V2</div>
+
+  
+    
+  <div class="nav-section" id="nav-sec-categories-controller">
+    <div class="nav-section-header" onclick="toggleNavSection('nav-sec-categories-controller')">
+      <span>Categories Controller</span>
+      
+      <span class="chevron">▼</span>
+    </div>
+    <div class="nav-section-items">
+      
+      <div class="nav-item" onclick="showEndpoint('categories-controller-get-api-categories', 'sec-categories-controller')">
+        <span class="nav-badge method-badge method-get">GET</span>
+        <span class="nav-uri">/api/categories</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('categories-controller-get-api-categories-id:int', 'sec-categories-controller')">
+        <span class="nav-badge method-badge method-get">GET</span>
+        <span class="nav-uri">/api/categories/{id:int}</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('categories-controller-post-api-categories', 'sec-categories-controller')">
+        <span class="nav-badge method-badge method-post">POST</span>
+        <span class="nav-uri">/api/categories</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('categories-controller-put-api-categories-id:int', 'sec-categories-controller')">
+        <span class="nav-badge method-badge method-put">PUT</span>
+        <span class="nav-uri">/api/categories/{id:int}</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('categories-controller-delete-api-categories-id:int', 'sec-categories-controller')">
+        <span class="nav-badge method-badge method-delete">DELETE</span>
+        <span class="nav-uri">/api/categories/{id:int}</span>
+      </div>
+      
+    </div>
+  </div>
+  
+    
+  <div class="nav-section" id="nav-sec-expenses-controller">
+    <div class="nav-section-header" onclick="toggleNavSection('nav-sec-expenses-controller')">
+      <span>Expenses Controller</span>
+      
+      <span class="chevron">▼</span>
+    </div>
+    <div class="nav-section-items">
+      
+      <div class="nav-item" onclick="showEndpoint('expenses-controller-get-api-expenses', 'sec-expenses-controller')">
+        <span class="nav-badge method-badge method-get">GET</span>
+        <span class="nav-uri">/api/expenses</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('expenses-controller-get-api-expenses-id:int', 'sec-expenses-controller')">
+        <span class="nav-badge method-badge method-get">GET</span>
+        <span class="nav-uri">/api/expenses/{id:int}</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('expenses-controller-post-api-expenses', 'sec-expenses-controller')">
+        <span class="nav-badge method-badge method-post">POST</span>
+        <span class="nav-uri">/api/expenses</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('expenses-controller-put-api-expenses-id:int', 'sec-expenses-controller')">
+        <span class="nav-badge method-badge method-put">PUT</span>
+        <span class="nav-uri">/api/expenses/{id:int}</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('expenses-controller-delete-api-expenses-id:int', 'sec-expenses-controller')">
+        <span class="nav-badge method-badge method-delete">DELETE</span>
+        <span class="nav-uri">/api/expenses/{id:int}</span>
+      </div>
+      
+    </div>
+  </div>
+  
+</nav>
+
+<main>
+  <div class="page-header">
+    <div class="page-header-text">
+      <h1>Budget API DOC V2</h1>
+      <p>
+        2 section(s) ·
+        5 + 5 + 0 endpoints · Generated by apidocgen
+      </p>
+    </div>
+  </div>
+
+  <div class="search-bar">
+    <div class="search-input-wrap">
+      <span class="search-icon">⌕</span>
+      <input class="search-input" id="search-input" type="search" placeholder="Buscar endpoint…" oninput="filterEndpoints()" autocomplete="off">
+      <button class="search-clear" id="search-clear" onclick="clearSearch()">×</button>
+    </div>
+    <div class="method-filters">
+      <button class="mf-btn mf-all active" data-method="ALL" onclick="setMethodFilter(this)">ALL</button>
+      <button class="mf-btn mf-get"  data-method="GET"    onclick="setMethodFilter(this)">GET</button>
+      <button class="mf-btn mf-post" data-method="POST"   onclick="setMethodFilter(this)">POST</button>
+      <button class="mf-btn mf-put"  data-method="PUT"    onclick="setMethodFilter(this)">PUT</button>
+      <button class="mf-btn mf-del"  data-method="DELETE" onclick="setMethodFilter(this)">DELETE</button>
+    </div>
+  </div>
+
+  
+    
+  <div class="section-page" id="sec-categories-controller">
+    <div class="section-title-bar">
+      <h2>Categories Controller</h2>
+      
+      <span class="section-count">5 endpoints</span>
+    </div>
+
+    
+    <div class="endpoint" id="categories-controller-get-api-categories">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-uri">/api/categories</span>
+        <span class="endpoint-summary">Obtiene la lista completa de categorías ordenadas alfabéticamente</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Retorna todas las categorías registradas en la base de datos, ordenadas de forma ascendente por nombre. La consulta se ejecuta en modo de solo lectura (AsNoTracking) para optimizar el rendimiento. Cada elemento de la lista incluye únicamente el identificador y el nombre de la categoría.</p>
+
+        
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">Solicitud exitosa. Retorna un array con todas las categorías disponibles. Si no existen categorías, retorna un array vacío.</span>
+            </div>
+            <pre>[{&#34;id&#34;: 1, &#34;name&#34;: &#34;Electrónica&#34;}, {&#34;id&#34;: 2, &#34;name&#34;: &#34;Ropa&#34;}, {&#34;id&#34;: 3, &#34;name&#34;: &#34;Hogar&#34;}]</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor. Ocurre cuando hay un fallo en la conexión con la base de datos u otro error inesperado durante el procesamiento de la solicitud.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;An unexpected error occurred&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="categories-controller-get-api-categories-id:int">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-uri">/api/categories/{id:int}</span>
+        <span class="endpoint-summary">Obtiene una categoría por su identificador único</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Busca y retorna una categoría específica en la base de datos utilizando su identificador entero. La consulta se realiza de forma asíncrona y sin seguimiento de cambios (AsNoTracking) para optimizar el rendimiento. Si no se encuentra ninguna categoría con el identificador proporcionado, se retorna un error 404 Not Found. En caso de éxito, retorna un objeto con el identificador y el nombre de la categoría.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">id</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único de la categoría a consultar. Debe ser un número entero positivo y estar presente en la URL como parámetro de ruta.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">La categoría fue encontrada exitosamente. Retorna el identificador y el nombre de la categoría.</span>
+            </div>
+            <pre>{&#34;id&#34;: 1, &#34;name&#34;: &#34;Electrónica&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">No se encontró ninguna categoría con el identificador proporcionado.</span>
+            </div>
+            <pre>{}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="categories-controller-post-api-categories">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-uri">/api/categories</span>
+        <span class="endpoint-summary">Crear una nueva categoría</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Crea una nueva categoría en el sistema a partir del nombre proporcionado. El nombre es recortado de espacios en blanco antes de ser procesado. Si el nombre resultante está vacío, se retorna un error de solicitud incorrecta. Si ya existe una categoría con el mismo nombre (sensible a mayúsculas/minúsculas según la base de datos), se retorna un conflicto. En caso de éxito, la categoría es persistida en la base de datos y se retorna la representación del recurso creado junto con la URL de acceso al mismo.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">Name</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Nombre de la categoría a crear. Se aplica trim automáticamente. No puede ser nulo, vacío ni estar compuesto únicamente por espacios en blanco. Debe ser único entre todas las categorías existentes.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">201</span>
+              <span class="response-desc">Categoría creada exitosamente. Retorna el recurso creado con su identificador y nombre, e incluye el header Location apuntando al endpoint de consulta individual.</span>
+            </div>
+            <pre>{&#34;id&#34;: 1, &#34;name&#34;: &#34;Electrónica&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">400</span>
+              <span class="response-desc">Solicitud incorrecta. Ocurre cuando el campo Name es nulo, está vacío o contiene únicamente espacios en blanco tras aplicar el trim.</span>
+            </div>
+            <pre>{}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">409</span>
+              <span class="response-desc">Conflicto. Ocurre cuando ya existe una categoría registrada en la base de datos con el mismo nombre.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;Ya existe una categoría con ese nombre.&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Request Example</div>
+          <pre>{&#34;name&#34;: &#34;Electrónica&#34;}</pre>
+        </div>
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="categories-controller-put-api-categories-id:int">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-put">PUT</span>
+        <span class="endpoint-uri">/api/categories/{id:int}</span>
+        <span class="endpoint-summary">Actualizar una categoría existente por su ID</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Actualiza el nombre de una categoría identificada por su ID. El endpoint aplica las siguientes validaciones: el campo &#39;Name&#39; no puede ser nulo ni vacío (tras aplicar Trim); si la categoría con el ID especificado no existe, retorna 404; si ya existe otra categoría distinta con el mismo nombre, retorna 409 indicando duplicado. Si todas las validaciones pasan, persiste el nuevo nombre y retorna 204 sin contenido.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">id</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único de la categoría a actualizar. Se pasa como parte de la URL.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">Name</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Nuevo nombre que se asignará a la categoría. Se eliminan los espacios en blanco al inicio y al final antes de validar y guardar.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">204</span>
+              <span class="response-desc">La categoría fue actualizada correctamente. No se retorna contenido en el cuerpo de la respuesta.</span>
+            </div>
+            
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">400</span>
+              <span class="response-desc">El campo &#39;Name&#39; está vacío o contiene solo espacios en blanco.</span>
+            </div>
+            
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">No existe ninguna categoría con el ID proporcionado.</span>
+            </div>
+            
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">409</span>
+              <span class="response-desc">Ya existe otra categoría con el mismo nombre. Se retorna un mensaje descriptivo del conflicto.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;Ya existe otra categoría con ese nombre.&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Request Example</div>
+          <pre>{&#34;Name&#34;: &#34;Electrónica&#34;}</pre>
+        </div>
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="categories-controller-delete-api-categories-id:int">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-delete">DELETE</span>
+        <span class="endpoint-uri">/api/categories/{id:int}</span>
+        <span class="endpoint-summary">Elimina una categoría existente por su identificador único</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Elimina permanentemente una categoría de la base de datos según el ID proporcionado. Antes de proceder con la eliminación, el endpoint verifica que la categoría exista y que no tenga gastos asociados. Si la categoría no existe, retorna 404. Si la categoría tiene uno o más gastos vinculados, retorna 409 indicando que no es posible eliminarla para preservar la integridad referencial de los datos. Si todas las validaciones son exitosas, la categoría es eliminada y se retorna 204 sin contenido.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">id</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único de la categoría que se desea eliminar. Se pasa como parámetro en la ruta de la URL.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">204</span>
+              <span class="response-desc">La categoría fue eliminada exitosamente. No se retorna contenido en el cuerpo de la respuesta.</span>
+            </div>
+            
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">No se encontró ninguna categoría con el ID especificado.</span>
+            </div>
+            
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">409</span>
+              <span class="response-desc">La categoría no puede ser eliminada porque tiene gastos asociados. Se retorna un mensaje descriptivo del conflicto.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;No se puede eliminar la categoría porque tiene gastos asociados.&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+  </div>
+  
+    
+  <div class="section-page" id="sec-expenses-controller">
+    <div class="section-title-bar">
+      <h2>Expenses Controller</h2>
+      
+      <span class="section-count">5 endpoints</span>
+    </div>
+
+    
+    <div class="endpoint" id="expenses-controller-get-api-expenses">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-uri">/api/expenses</span>
+        <span class="endpoint-summary">Obtiene la lista de todos los gastos con filtros opcionales por fecha y categoría</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Retorna una colección de gastos registrados en el sistema. Permite filtrar los resultados por fecha de inicio, fecha de fin y/o categoría. Los gastos se devuelven ordenados de forma descendente por fecha y, en caso de empate, por identificador descendente. Cada gasto incluye la información de su categoría asociada si existe. Todos los parámetros de filtro son opcionales; si no se proporcionan, se retornan todos los gastos disponibles.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">from</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Fecha de inicio del rango de búsqueda. Solo se incluirán los gastos cuya fecha sea mayor o igual a este valor.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">to</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Fecha de fin del rango de búsqueda. Solo se incluirán los gastos cuya fecha sea menor o igual a este valor.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">categoryId</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Identificador único de la categoría. Filtra los gastos que pertenecen exclusivamente a esta categoría.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">Solicitud exitosa. Retorna un arreglo con los gastos que coinciden con los filtros aplicados. Si no hay gastos, retorna un arreglo vacío.</span>
+            </div>
+            <pre>[{&#34;id&#34;: 42, &#34;amount&#34;: 150.75, &#34;date&#34;: &#34;2024-06-15&#34;, &#34;description&#34;: &#34;Compra de suministros de oficina&#34;, &#34;categoryId&#34;: 3, &#34;categoryName&#34;: &#34;Oficina&#34;}, {&#34;id&#34;: 41, &#34;amount&#34;: 60.00, &#34;date&#34;: &#34;2024-06-14&#34;, &#34;description&#34;: &#34;Almuerzo con cliente&#34;, &#34;categoryId&#34;: 5, &#34;categoryName&#34;: &#34;Alimentación&#34;}, {&#34;id&#34;: 40, &#34;amount&#34;: 200.00, &#34;date&#34;: &#34;2024-06-10&#34;, &#34;description&#34;: &#34;Transporte&#34;, &#34;categoryId&#34;: null, &#34;categoryName&#34;: null}]</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="expenses-controller-get-api-expenses-id:int">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-uri">/api/expenses/{id:int}</span>
+        <span class="endpoint-summary">Obtiene un gasto específico por su identificador único</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Recupera los detalles completos de un gasto a partir de su ID entero. El endpoint realiza una consulta a la base de datos incluyendo la categoría asociada (eager loading). Si no se encuentra ningún gasto con el ID proporcionado, se retorna un error 404. La consulta se ejecuta en modo de solo lectura (AsNoTracking) para optimizar el rendimiento.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">id</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único del gasto a recuperar. Debe ser un número entero positivo y corresponder a un gasto existente en la base de datos.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">El gasto fue encontrado exitosamente. Retorna el objeto completo del gasto incluyendo información de su categoría asociada.</span>
+            </div>
+            <pre>{&#34;id&#34;: 42, &#34;amount&#34;: 150.75, &#34;date&#34;: &#34;2024-06-15T10:30:00&#34;, &#34;description&#34;: &#34;Compra de material de oficina&#34;, &#34;categoryId&#34;: 3, &#34;categoryName&#34;: &#34;Oficina&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">No existe ningún gasto con el ID proporcionado en la base de datos.</span>
+            </div>
+            <pre>{}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="expenses-controller-post-api-expenses">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-uri">/api/expenses</span>
+        <span class="endpoint-summary">Crea un nuevo gasto en el sistema</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Registra un nuevo gasto en la base de datos con los datos proporcionados. Valida que el importe sea mayor que cero y que la categoría especificada exista previamente en el sistema. Si las validaciones son correctas, persiste el gasto, carga la información de la categoría asociada y retorna el recurso creado junto con la URL de acceso al mismo.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">Amount</td>
+                <td class="param-type">number</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Importe monetario del gasto. Debe ser un valor numérico estrictamente mayor que cero.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">Date</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Fecha en la que se realizó el gasto.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">Description</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Descripción o concepto del gasto. Los espacios al inicio y al final serán eliminados automáticamente antes de guardarse.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">CategoryId</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador de la categoría a la que pertenece el gasto. Debe corresponder a una categoría existente en el sistema.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">201</span>
+              <span class="response-desc">El gasto fue creado exitosamente. Se retorna el recurso creado junto con el header Location apuntando al endpoint de consulta individual.</span>
+            </div>
+            <pre>{&#34;id&#34;: 42, &#34;amount&#34;: 150.75, &#34;date&#34;: &#34;2024-06-15&#34;, &#34;description&#34;: &#34;Compra de material de oficina&#34;, &#34;categoryId&#34;: 3, &#34;categoryName&#34;: &#34;Suministros&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">400</span>
+              <span class="response-desc">La solicitud es inválida. Puede deberse a que el importe es menor o igual a cero, o a que la categoría especificada no existe en el sistema.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;El importe debe ser mayor que cero.&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">400</span>
+              <span class="response-desc">La categoría proporcionada no existe en la base de datos.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;La categoría no existe.&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">422</span>
+              <span class="response-desc">El modelo de la solicitud no supera las validaciones de datos (ModelState inválido). Se retorna un ProblemDetails con los errores de validación por campo.</span>
+            </div>
+            <pre>{&#34;type&#34;: &#34;https://tools.ietf.org/html/rfc7231#section-6.5.1&#34;, &#34;title&#34;: &#34;One or more validation errors occurred.&#34;, &#34;status&#34;: 422, &#34;errors&#34;: {&#34;Amount&#34;: [&#34;The Amount field is required.&#34;]}}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Request Example</div>
+          <pre>{&#34;amount&#34;: 150.75, &#34;date&#34;: &#34;2024-06-15&#34;, &#34;description&#34;: &#34;Compra de material de oficina&#34;, &#34;categoryId&#34;: 3}</pre>
+        </div>
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="expenses-controller-put-api-expenses-id:int">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-put">PUT</span>
+        <span class="endpoint-uri">/api/expenses/{id:int}</span>
+        <span class="endpoint-summary">Actualiza un gasto existente por su identificador</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Permite modificar los datos de un gasto registrado en el sistema. Se valida que el importe sea mayor que cero, que la categoría especificada exista en la base de datos y que el gasto identificado por el parámetro de ruta exista. Si todas las validaciones son exitosas, se actualizan los campos amount, date, description (aplicando trim) y categoryId del registro, y se persisten los cambios. Retorna 204 No Content en caso de éxito, 400 Bad Request si los datos son inválidos o la categoría no existe, y 404 Not Found si el gasto no existe.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">id</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único del gasto que se desea actualizar</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">amount</td>
+                <td class="param-type">number</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Importe monetario del gasto. Debe ser un valor numérico estrictamente mayor que cero</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">date</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Fecha en la que se realizó el gasto</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">description</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Descripción textual del gasto. Se eliminan los espacios en blanco al inicio y al final antes de guardar</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">categoryId</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador de la categoría a la que pertenece el gasto. Debe corresponder a una categoría existente en el sistema</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">204</span>
+              <span class="response-desc">El gasto fue actualizado correctamente. No se retorna contenido en el cuerpo de la respuesta</span>
+            </div>
+            
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">400</span>
+              <span class="response-desc">La solicitud contiene datos inválidos. Puede ocurrir por fallo en la validación del modelo, importe menor o igual a cero, o porque la categoría especificada no existe</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;El importe debe ser mayor que cero.&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">No se encontró ningún gasto con el identificador proporcionado</span>
+            </div>
+            
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">422</span>
+              <span class="response-desc">Error de validación del modelo cuando los campos requeridos no cumplen con las reglas de tipos o formato esperado</span>
+            </div>
+            <pre>{&#34;type&#34;: &#34;https://tools.ietf.org/html/rfc4918#section-11.2&#34;, &#34;title&#34;: &#34;One or more validation errors occurred.&#34;, &#34;status&#34;: 422, &#34;errors&#34;: {&#34;Amount&#34;: [&#34;The Amount field is required.&#34;]}}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Request Example</div>
+          <pre>{&#34;amount&#34;: 150.75, &#34;date&#34;: &#34;2024-06-15&#34;, &#34;description&#34;: &#34;Compra de material de oficina&#34;, &#34;categoryId&#34;: 3}</pre>
+        </div>
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="expenses-controller-delete-api-expenses-id:int">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-delete">DELETE</span>
+        <span class="endpoint-uri">/api/expenses/{id:int}</span>
+        <span class="endpoint-summary">Elimina un gasto existente por su identificador único</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Este endpoint elimina permanentemente un registro de gasto de la base de datos. Se busca el gasto por su identificador entero; si no existe, se retorna un error 404. Si el gasto es encontrado, se elimina de forma definitiva e irreversible y se confirman los cambios en la base de datos. No se aplica borrado lógico (soft delete), por lo que la operación no puede deshacerse.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">id</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único del gasto que se desea eliminar. Debe ser un número entero válido correspondiente a un gasto existente en la base de datos.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">204</span>
+              <span class="response-desc">El gasto fue eliminado exitosamente. No se retorna contenido en el cuerpo de la respuesta.</span>
+            </div>
+            
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">No se encontró ningún gasto con el identificador proporcionado. El recurso no existe en la base de datos.</span>
+            </div>
+            <pre>{&#34;status&#34;: 404, &#34;message&#34;: &#34;Not Found&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+  </div>
+  
+  <div class="no-results" id="no-results">
+    No se encontraron endpoints que coincidan con la búsqueda.
+  </div>
+</main>
+
+<script>
+  function slugify(s) {
+    return s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  }
+
+  function toggleNav() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('nav-overlay').classList.toggle('open');
+  }
+  function closeNav() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('nav-overlay').classList.remove('open');
+  }
+
+  
+  function showSection(sectionId) {
+    document.querySelectorAll('.section-page').forEach(el => el.classList.remove('active'));
+    const target = document.getElementById(sectionId);
+    if (target) target.classList.add('active');
+  }
+
+  
+  function showEndpoint(endpointId, sectionId) {
+    showSection(sectionId);
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    const ep = document.getElementById(endpointId);
+    if (ep) {
+      ep.classList.add('open');
+      ep.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    closeNav();
+  }
+
+  function toggleNavSection(id) {
+    document.getElementById(id).classList.toggle('collapsed');
+  }
+
+  
+  let activeMethod = 'ALL';
+
+  function setMethodFilter(btn) {
+    activeMethod = btn.dataset.method;
+    document.querySelectorAll('.mf-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterEndpoints();
+  }
+
+  function clearSearch() {
+    document.getElementById('search-input').value = '';
+    document.getElementById('search-clear').classList.remove('visible');
+    filterEndpoints();
+  }
+
+  function filterEndpoints() {
+    const query = document.getElementById('search-input').value.trim().toLowerCase();
+    const clearBtn = document.getElementById('search-clear');
+    clearBtn.classList.toggle('visible', query.length > 0);
+
+    const isSearching = query.length > 0 || activeMethod !== 'ALL';
+    let anyVisible = false;
+
+    document.querySelectorAll('.section-page').forEach(section => {
+      let sectionHasVisible = false;
+      section.querySelectorAll('.endpoint').forEach(ep => {
+        const uri     = (ep.querySelector('.endpoint-uri')?.textContent || '').toLowerCase();
+        const summary = (ep.querySelector('.endpoint-summary')?.textContent || '').toLowerCase();
+        const method  = (ep.querySelector('.method-badge')?.textContent || '').trim().toUpperCase();
+        const matchText   = !query || uri.includes(query) || summary.includes(query);
+        const matchMethod = activeMethod === 'ALL' || method === activeMethod;
+        const visible = matchText && matchMethod;
+        ep.style.display = visible ? '' : 'none';
+        if (visible) { sectionHasVisible = true; anyVisible = true; }
+      });
+      section.style.display = (!isSearching || sectionHasVisible) ? '' : 'none';
+      if (isSearching && sectionHasVisible) section.classList.add('active');
+    });
+
+    if (isSearching) {
+      document.querySelectorAll('.section-page').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.section-page').forEach(s => {
+        if (s.style.display !== 'none') s.classList.add('active');
+      });
+    } else {
+      const first = document.querySelector('.section-page');
+      document.querySelectorAll('.section-page').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = '';
+        s.querySelectorAll('.endpoint').forEach(ep => ep.style.display = '');
+      });
+      if (first) first.classList.add('active');
+    }
+
+    document.getElementById('no-results').classList.toggle('visible', isSearching && !anyVisible);
+  }
+
+  
+  const firstSection = document.querySelector('.section-page');
+  if (firstSection) firstSection.classList.add('active');
+
+  
+  const firstEndpoint = document.querySelector('.section-page.active .endpoint');
+  if (firstEndpoint) firstEndpoint.classList.add('open');
+</script>
+</body>
+</html>

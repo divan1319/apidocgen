@@ -1,0 +1,9 @@
+{
+  "name": "budget app v2",
+  "slug": "budget-app-v2",
+  "lang": "dotnet",
+  "routes": "Controllers/",
+  "root": "/opt/projects/budget_app_net_core/BudgetApp.Api",
+  "title": "Budget API DOC V2",
+  "doc_lang": "es"
+}
