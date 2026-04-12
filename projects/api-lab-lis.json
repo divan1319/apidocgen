@@ -1,0 +1,9 @@
+{
+  "name": "Api Lab Lis",
+  "slug": "api-lab-lis",
+  "lang": "laravel",
+  "routes": "routes/api.php",
+  "root": "/opt/projects/api_lab_lis/",
+  "title": "DOCUMENTACION API LAB LIS",
+  "doc_lang": "es"
+}

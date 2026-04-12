@@ -1,20 +1,19 @@
 #!/bin/bash
+set -e
 
-set -a
-source .env 2>/dev/null
-set +a
-# Check if Go is installed
-if ! command -v go &> /dev/null; then
-    echo "Go could not be found. Please install Go and try again."
-    exit 1
-fi
+echo "=== Construyendo frontend Vue ==="
+cd web
+npm install
+npm run build
+cd ..
 
-## Install dependencies
+echo ""
+echo "=== Construyendo binario Go ==="
 go mod tidy
 go mod download && go mod verify
+go build -o apidocgen ./cmd/main.go
 
-# Build the project
-go build -o ${OUTPUT_NAME} cmd/main.go
-
-
-echo "Build completed. Run with: ./${OUTPUT_NAME}"
+echo ""
+echo "✓ Build completo: ./apidocgen"
+echo "  Usa: ./apidocgen serve --port 8080"
+echo "  O:   ./apidocgen generate"

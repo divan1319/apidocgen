@@ -2,6 +2,10 @@
 apidocgen
 
 
-# Los archivos de proyecto y docs sí se versionan:
-# projects/*.json  → configuración de cada documentación
-# docs/*.html      → HTML generado + index.html
+# Frontend build artifacts
+web/node_modules/
+web/dist/
+
+# Los archivos de proyecto y docs si se versionan:
+# projects/*.json  -> configuracion de cada documentacion
+# docs/*.html      -> HTML generado + index.html
