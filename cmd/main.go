@@ -15,6 +15,7 @@ import (
 
 	_ "github.com/divan1319/apidocgen/internal/parser/dotnet"
 	_ "github.com/divan1319/apidocgen/internal/parser/laravel"
+	_ "github.com/divan1319/apidocgen/internal/parser/node"
 )
 
 func main() {
