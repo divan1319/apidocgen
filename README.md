@@ -6,7 +6,7 @@ Incluye dos modos de uso: una **CLI interactiva** para generar documentación de
 
 ## Características
 
-- Parsers para **Laravel**, **.NET** y **Node.js** (Express, Fastify y HTTP nativo).
+- Parsers para **Laravel**, **.NET**, **Express**, **Fastify** y **Node.js HTTP nativo**.
 - Soporte **multi-proyecto**: cada proyecto se guarda como un archivo JSON en `projects/` con su propia configuración.
 - **Caché por proyecto** en `cache/` para no repetir llamadas a la API.
 - Documentación generada en **inglés** o **español**.
@@ -88,7 +88,7 @@ La forma más sencilla de usar la herramienta. Carga `.env` y muestra un menú:
 | Flag         | Descripción                                            |
 | ------------ | ------------------------------------------------------ |
 | `--project`  | Slug del proyecto (salta el menú interactivo).         |
-| `--lang`     | Framework: `laravel`, `dotnet`, `node` (default: `laravel`). |
+| `--lang`     | Framework: `laravel`, `dotnet`, `express`, `fastify`, `nodehttp` (default: `laravel`). |
 | `--routes`   | Archivos de rutas separados por coma.                  |
 | `--root`     | Directorio raíz del proyecto a documentar.             |
 | `--output`   | Ruta del HTML de salida (default: `docs/<slug>.html`). |
@@ -122,7 +122,7 @@ apidocgen/
 │   ├── parser/                  # Parsers de rutas
 │   │   ├── laravel/
 │   │   ├── dotnet/
-│   │   └── node/
+│   │   └── node/                # Express, Fastify y Node HTTP nativo
 │   ├── project/                 # CRUD de proyectos (JSON)
 │   └── server/                  # Servidor HTTP + API REST + motor de generación
 ├── pkg/models/                  # Modelos compartidos
@@ -172,7 +172,9 @@ Los HTML generados se sirven en `/docs/<slug>.html`.
 
 - **Laravel** — `--lang laravel`
 - **.NET / ASP.NET Core** — `--lang dotnet`
-- **Node.js** (Express, Fastify, HTTP nativo) — `--lang node`
+- **Express** — `--lang express`
+- **Fastify** — `--lang fastify`
+- **Node.js HTTP nativo** — `--lang nodehttp`
 
 Se pueden agregar nuevos parsers implementando la interfaz `Parser` y registrándolos en `internal/parser/`.
 
@@ -256,39 +258,37 @@ routes: Controllers/Api/V1/
 root:   /home/user/mi-proyecto-dotnet
 ```
 
-### Node.js (Express, Fastify, HTTP nativo)
+### Express (`--lang express`)
 
-En Node.js las rutas se definen en archivos `.js` o `.ts`. El parser detecta automáticamente el framework utilizado (Express, Fastify o HTTP nativo) y extrae los endpoints.
+Parser para aplicaciones Express. Detecta rutas directas, Router con prefijo, route chaining y middleware.
 
-**Carpeta de rutas (Express):**
+**Carpeta de rutas:**
 
 ```
 routes: routes/
 root:   /home/user/mi-api-express
-lang:   node
+lang:   express
 ```
-
-Esto escanea recursivamente todos los archivos `.js` y `.ts` dentro de `routes/`, saltando automáticamente `node_modules`, `dist`, `build` y `coverage`.
 
 **Archivo principal:**
 
 ```
 routes: src/app.js
 root:   /home/user/mi-api-express
-lang:   node
+lang:   express
 ```
 
 **Múltiples archivos:**
 
 ```
 routes: src/routes/users.ts,src/routes/products.ts,src/app.ts
-root:   /home/user/mi-api
-lang:   node
+root:   /home/user/mi-api-express
+lang:   express
 ```
 
-#### Patrones que detecta el parser
+#### Patrones que detecta
 
-**Express — rutas directas:**
+**Rutas directas:**
 
 ```javascript
 app.get('/api/users', getUsers);
@@ -297,7 +297,7 @@ app.put('/api/users/:id', updateUser);
 app.delete('/api/users/:id', deleteUser);
 ```
 
-**Express — Router con prefijo:**
+**Router con prefijo:**
 
 ```javascript
 const usersRouter = express.Router();
@@ -311,7 +311,7 @@ app.use('/api/users', usersRouter);
 
 Cuando el `Router()` y su `app.use()` están en el mismo archivo, el parser resuelve el prefijo automáticamente.
 
-**Express — route chaining:**
+**Route chaining:**
 
 ```javascript
 app.route('/api/books')
@@ -324,7 +324,7 @@ app.route('/api/books/:id')
     .delete(deleteBook);
 ```
 
-**Express — middleware:**
+**Middleware:**
 
 ```javascript
 app.get('/api/admin', authenticate, authorize, (req, res) => {
@@ -333,7 +333,32 @@ app.get('/api/admin', authenticate, authorize, (req, res) => {
 // Detecta middleware: [authenticate, authorize]
 ```
 
-**Fastify — rutas shorthand:**
+#### Ejemplo CLI
+
+```bash
+./apidocgen generate \
+    --lang express \
+    --routes src/routes/ \
+    --root /home/user/mi-api-express \
+    --title "Mi API Express" \
+    --doc-lang es
+```
+
+### Fastify (`--lang fastify`)
+
+Parser para aplicaciones Fastify. Detecta rutas shorthand, route objects, register con prefijo y patrón plugin.
+
+**Carpeta de rutas:**
+
+```
+routes: src/routes/
+root:   /home/user/mi-api-fastify
+lang:   fastify
+```
+
+#### Patrones que detecta
+
+**Rutas shorthand:**
 
 ```javascript
 fastify.get('/api/users', getUsers);
@@ -342,7 +367,7 @@ fastify.put('/api/users/:id', updateUser);
 fastify.delete('/api/users/:id', deleteUser);
 ```
 
-**Fastify — route object (declaración completa):**
+**Route object (declaración completa):**
 
 ```javascript
 fastify.route({
@@ -360,14 +385,14 @@ fastify.route({
 });
 ```
 
-**Fastify — register con prefijo:**
+**Register con prefijo:**
 
 ```javascript
 fastify.register(userRoutes, { prefix: '/api/users' });
 fastify.register(itemRoutes, { prefix: '/api/items' });
 ```
 
-**Fastify — patrón plugin:**
+**Patrón plugin:**
 
 ```javascript
 module.exports = async function(fastify, opts) {
@@ -377,7 +402,31 @@ module.exports = async function(fastify, opts) {
 };
 ```
 
-**HTTP nativo — if/else con req.method y req.url:**
+#### Ejemplo CLI
+
+```bash
+./apidocgen generate \
+    --lang fastify \
+    --routes src/app.ts \
+    --root /home/user/mi-api-fastify \
+    --title "API Fastify"
+```
+
+### Node.js HTTP nativo (`--lang nodehttp`)
+
+Parser para servidores HTTP nativos de Node.js. Detecta patrones con `req.method`/`req.url` y bloques `switch/case`.
+
+**Archivo del servidor:**
+
+```
+routes: server.js
+root:   /home/user/mi-servidor-node
+lang:   nodehttp
+```
+
+#### Patrones que detecta
+
+**if/else con req.method y req.url:**
 
 ```javascript
 const server = http.createServer((req, res) => {
@@ -389,7 +438,7 @@ const server = http.createServer((req, res) => {
 });
 ```
 
-**HTTP nativo — switch/case:**
+**switch/case:**
 
 ```javascript
 const server = http.createServer((req, res) => {
@@ -402,44 +451,28 @@ const server = http.createServer((req, res) => {
 });
 ```
 
-#### Ejemplo completo con CLI
+#### Ejemplo CLI
 
 ```bash
-# Proyecto Express con TypeScript
 ./apidocgen generate \
-    --lang node \
-    --routes src/routes/ \
-    --root /home/user/mi-api-express \
-    --title "Mi API Express" \
-    --doc-lang es
-
-# Proyecto Fastify — archivo principal
-./apidocgen generate \
-    --lang node \
-    --routes src/app.ts \
-    --root /home/user/mi-api-fastify \
-    --title "API Fastify"
-
-# Proyecto Node nativo — múltiples archivos
-./apidocgen generate \
-    --lang node \
+    --lang nodehttp \
     --routes server.js,routes/api.js \
     --root /home/user/mi-servidor-node \
     --title "API HTTP Nativa"
 ```
 
-#### Notas específicas de Node.js
+#### Notas comunes (Express, Fastify, Node HTTP)
 
 - Se procesan archivos `.js`, `.ts`, `.mjs`, `.mts`, `.cjs` y `.cts`.
 - Los archivos TypeScript se marcan con language `typescript` para code fences correctos en la documentación.
 - Se extraen automáticamente los **parámetros de ruta** (`:id`, `:userId`, etc.) como parámetros requeridos.
-- El parser ignora código de testing (`describe`, `test`, `it`, `supertest`, etc.).
-- Si un `Router` se crea y se monta con `app.use('/prefix', router)` en el mismo archivo, el prefijo se resuelve automáticamente.
+- Los tres parsers ignoran código de testing (`describe`, `test`, `it`, `supertest`, etc.).
+- Se omiten automáticamente carpetas `node_modules`, `dist`, `build`, `coverage` y `__tests__`.
 
 ### Notas generales
 
 - Las rutas son **relativas al root** del proyecto. No necesitas poner la ruta absoluta completa.
-- Si pones una **carpeta** (.NET o Node.js), el parser escanea recursivamente los archivos correspondientes.
+- Si pones una **carpeta** (.NET, Express, Fastify o Node HTTP), el parser escanea recursivamente los archivos correspondientes.
 - Puedes separar **múltiples archivos o carpetas** con coma: `routes/api.php,routes/admin.php`.
 - Cada archivo procesado genera una **sección** independiente en la documentación final.
 
