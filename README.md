@@ -17,9 +17,11 @@ Incluye dos modos de uso: una **CLI interactiva** para generar documentación de
 
 ## Requisitos
 
-- [Go](https://go.dev/dl/) **1.22** o superior.
-- [Node.js](https://nodejs.org/) **18+** y npm (para compilar el frontend).
 - Clave de API de **Anthropic** ([Claude](https://www.anthropic.com/)).
+- Para **compilar en tu máquina** (sin Docker):
+  - [Go](https://go.dev/dl/) **1.22** o superior.
+  - [Node.js](https://nodejs.org/) **18+** y npm (para compilar el frontend).
+- Para **compilar o ejecutar solo con Docker**: [Docker](https://docs.docker.com/get-docker/) con BuildKit (habilitado por defecto en versiones recientes).
 
 ## Instalación
 
@@ -50,6 +52,90 @@ El script `build.sh` hace lo siguiente:
 
 1. Instala dependencias y compila el frontend Vue (`web/dist/`).
 2. Compila el binario Go con el frontend embebido dentro.
+
+Si no tienes Go ni Node instalados, usa la variante con Docker (ver [Docker](#docker)):
+
+```bash
+./build.sh --docker
+```
+
+## Docker
+
+Puedes construir **solo con Docker** (multi-stage: Node para el frontend, Go para el binario) o **ejecutar** la herramienta dentro de un contenedor Alpine con certificados CA para llamadas HTTPS a Anthropic.
+
+### Compilar el binario en el host (`./apidocgen`)
+
+Equivale a un `build.sh` local, pero las herramientas corren dentro de contenedores. El resultado es `./apidocgen` en la raíz del repositorio:
+
+```bash
+./build.sh --docker
+```
+
+Requisitos: solo Docker (BuildKit). Internamente se usa `docker build --target artifact -o .`.
+
+### Construir la imagen para ejecutar
+
+La última etapa del `Dockerfile` es una imagen lista para `docker run` (binario en `/usr/local/bin/apidocgen`):
+
+```bash
+docker build -t apidocgen .
+```
+
+### Ejecutar el servidor web (`serve`)
+
+La aplicación usa rutas relativas (`projects/`, `cache/`, `docs/`). Conviene fijar un directorio de trabajo en el contenedor y montar esas carpetas desde el host para no perder datos al parar el contenedor.
+
+```bash
+mkdir -p projects cache docs
+
+docker run --rm -it \
+  -w /data \
+  -v "$(pwd)/projects:/data/projects" \
+  -v "$(pwd)/cache:/data/cache" \
+  -v "$(pwd)/docs:/data/docs" \
+  -p 8080:8080 \
+  -e ANTHROPIC_API_KEY="tu-clave" \
+  apidocgen serve --port 8080
+```
+
+Abre `http://localhost:8080` en el navegador.
+
+### Ejecutar la CLI (`generate`)
+
+Para el modo interactivo necesitas TTY (`-it`). Los mismos volúmenes guardan proyectos, caché y HTML generados.
+
+```bash
+docker run --rm -it \
+  -w /data \
+  -v "$(pwd)/projects:/data/projects" \
+  -v "$(pwd)/cache:/data/cache" \
+  -v "$(pwd)/docs:/data/docs" \
+  -e ANTHROPIC_API_KEY="tu-clave" \
+  apidocgen generate
+```
+
+El campo **root** de cada proyecto (ruta al código que quieres documentar) debe ser una ruta **visible dentro del contenedor**. Suele montarse el repositorio o carpeta del API como volumen adicional, por ejemplo:
+
+```bash
+docker run --rm -it \
+  -w /data \
+  -v "$(pwd)/projects:/data/projects" \
+  -v "$(pwd)/cache:/data/cache" \
+  -v "$(pwd)/docs:/data/docs" \
+  -v /ruta/en/tu/host/mi-api-laravel:/source \
+  -e ANTHROPIC_API_KEY="tu-clave" \
+  apidocgen generate --project mi-slug
+```
+
+En la configuración del proyecto, usa `root` apuntando a esa ruta interna (p. ej. `/source`) o ajusta el montaje para que coincida con lo que guardaste en el JSON del proyecto.
+
+### Ayuda y otros comandos
+
+```bash
+docker run --rm apidocgen help
+docker run --rm apidocgen serve --help
+docker run --rm apidocgen generate --help
+```
 
 ## Uso
 
@@ -135,7 +221,9 @@ apidocgen/
 ├── projects/                    # Configuración de cada proyecto (.json)
 ├── cache/                       # Caché de documentación por proyecto
 ├── docs/                        # HTML generado + index.html
-├── build.sh                     # Compilar frontend + binario
+├── Dockerfile                   # Build multi-stage + imagen de ejecución
+├── .dockerignore                # Contexto reducido para docker build
+├── build.sh                     # Compilar frontend + binario (o --docker)
 └── generate.sh                  # Script de ejecución rápida
 ```
 
