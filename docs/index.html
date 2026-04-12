@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>API Documentation Hub</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface-2: #1a1a24;
+    --border: #2a2a3a;
+    --text: #e8e8f0;
+    --text-muted: #6b6b80;
+    --accent: #7c6af7;
+    --accent-dim: rgba(124,106,247,0.12);
+    --radius: 12px;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 80px 24px;
+  }
+  .header {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+  .header h1 {
+    font-size: 48px;
+    font-weight: 800;
+    letter-spacing: -.03em;
+    background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 12px;
+  }
+  .header p {
+    color: var(--text-muted);
+    font-size: 15px;
+  }
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+    gap: 20px;
+    width: 100%;
+    max-width: 960px;
+  }
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 28px;
+    text-decoration: none;
+    color: var(--text);
+    transition: border-color .2s, transform .2s;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .card:hover {
+    border-color: var(--accent);
+    transform: translateY(-2px);
+  }
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .card-title {
+    font-size: 20px;
+    font-weight: 700;
+  }
+  .card-lang {
+    font-family: var(--mono);
+    font-size: 10px;
+    font-weight: 500;
+    padding: 3px 10px;
+    border-radius: 6px;
+    background: var(--accent-dim);
+    color: var(--accent);
+    letter-spacing: .06em;
+    text-transform: uppercase;
+  }
+  .card-desc {
+    color: var(--text-muted);
+    font-size: 13px;
+    line-height: 1.5;
+  }
+  .card-slug {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-muted);
+  }
+  .card-arrow {
+    color: var(--accent);
+    font-size: 14px;
+    font-weight: 600;
+    align-self: flex-end;
+    opacity: 0;
+    transition: opacity .2s;
+  }
+  .card:hover .card-arrow { opacity: 1; }
+  .empty {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 14px;
+    padding: 48px 0;
+  }
+  @media (max-width: 480px) {
+    body { padding: 40px 16px; }
+    .header h1 { font-size: 32px; }
+    .grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="header">
+    <h1>API Documentation</h1>
+    <p>1 proyecto(s) documentado(s)</p>
+  </div>
+
+  
+  <div class="grid">
+    
+    <a class="card" href="budget-app.html">
+      <div class="card-header">
+        <span class="card-title">Budget App</span>
+        <span class="card-lang">dotnet</span>
+      </div>
+      <span class="card-desc">Budget App API Documentation</span>
+      <span class="card-slug">budget-app</span>
+      <span class="card-arrow">→ Ver documentación</span>
+    </a>
+    
+  </div>
+  
+</body>
+</html>

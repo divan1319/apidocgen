@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -14,25 +15,33 @@ import (
 	"github.com/divan1319/apidocgen/internal/cache"
 	"github.com/divan1319/apidocgen/internal/generator"
 	"github.com/divan1319/apidocgen/internal/parser"
+	"github.com/divan1319/apidocgen/internal/project"
 	"github.com/divan1319/apidocgen/pkg/models"
 
 	_ "github.com/divan1319/apidocgen/internal/parser/dotnet"
 	_ "github.com/divan1319/apidocgen/internal/parser/laravel"
 )
 
+const (
+	projectsDir = "projects"
+	cacheDir    = "cache"
+	docsDir     = "docs"
+)
+
 func main() {
 	genCmd := flag.NewFlagSet("generate", flag.ExitOnError)
 
-	lang       := genCmd.String("lang",    "laravel",              "Language/framework: "+strings.Join(parser.Names(), ", "))
-	routes     := genCmd.String("routes",  "",                     "Comma-separated route files (e.g. routes/api.php)")
-	root       := genCmd.String("root",    ".",                    "Project root directory")
-	output     := genCmd.String("output",  "api-docs.html",       "Output HTML file")
-	title      := genCmd.String("title",   "API Documentation",   "Documentation title")
-	apiKey     := genCmd.String("api-key", "",                     "Anthropic API key (or set ANTHROPIC_API_KEY env var)")
-	docLang    := genCmd.String("doc-lang","",                     "Documentation language: en (English) or es (Español). Prompted interactively if not set.")
-	cacheFile  := genCmd.String("cache",   "apidocgen-cache.json", "Path to cache file. Use --cache=\"\" to disable.")
-	forceRegen := genCmd.Bool("force",     false,                  "Ignore cache and re-document all endpoints with Claude.")
-	workers    := genCmd.Int("workers",    5,                      "Concurrent requests to Claude API (default: 5)")
+	lang       := genCmd.String("lang", "laravel", "Language/framework: "+strings.Join(parser.Names(), ", "))
+	routes     := genCmd.String("routes", "", "Comma-separated route files (e.g. routes/api.php)")
+	root       := genCmd.String("root", ".", "Project root directory")
+	output     := genCmd.String("output", "", "Output HTML file (default: docs/<slug>.html)")
+	title      := genCmd.String("title", "API Documentation", "Documentation title")
+	apiKey     := genCmd.String("api-key", "", "Anthropic API key (or set ANTHROPIC_API_KEY env var)")
+	docLang    := genCmd.String("doc-lang", "", "Documentation language: en (English) or es (Español). Prompted interactively if not set.")
+	cacheFile  := genCmd.String("cache", "", "Path to cache file (default: cache/<slug>-cache.json). Use --cache=none to disable.")
+	forceRegen := genCmd.Bool("force", false, "Ignore cache and re-document all endpoints with Claude.")
+	workers    := genCmd.Int("workers", 5, "Concurrent requests to Claude API (default: 5)")
+	projectSlug := genCmd.String("project", "", "Project slug to select directly (skip interactive menu)")
 
 	if len(os.Args) < 2 {
 		printUsage()
@@ -42,7 +51,7 @@ func main() {
 	switch os.Args[1] {
 	case "generate":
 		genCmd.Parse(os.Args[2:])
-		runGenerate(*lang, *routes, *root, *output, *title, *apiKey, *docLang, *cacheFile, *forceRegen, *workers)
+		runGenerate(*lang, *routes, *root, *output, *title, *apiKey, *docLang, *cacheFile, *forceRegen, *workers, *projectSlug)
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -52,13 +61,69 @@ func main() {
 	}
 }
 
-func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile string, forceRegen bool, workers int) {
+func ensureDirs() {
+	for _, d := range []string{projectsDir, cacheDir, docsDir} {
+		if err := os.MkdirAll(d, 0755); err != nil {
+			fatal("creating directory %s: %v", d, err)
+		}
+	}
+}
+
+func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile string, forceRegen bool, workers int, projectSlug string) {
 	if apiKey == "" {
 		apiKey = os.Getenv("ANTHROPIC_API_KEY")
 	}
 	if apiKey == "" {
 		fatal("API key required: use --api-key or set ANTHROPIC_API_KEY")
 	}
+
+	reader := bufio.NewReader(os.Stdin)
+
+	ensureDirs()
+
+	// ── Resolve project ─────────────────────────────────────────────────────
+	var proj *project.Project
+
+	hasExplicitFlags := routes != ""
+
+	if hasExplicitFlags && projectSlug == "" {
+		// Legacy / non-interactive mode: flags provided directly without --project
+		proj = &project.Project{
+			Lang:    lang,
+			Routes:  routes,
+			Root:    root,
+			Title:   title,
+			DocLang: docLang,
+		}
+	} else {
+		proj = selectOrCreateProject(reader, projectSlug, lang, routes, root, title, docLang)
+	}
+
+	// Apply project values
+	lang = proj.Lang
+	routes = proj.Routes
+	root = proj.Root
+	title = proj.Title
+	if proj.DocLang != "" {
+		docLang = proj.DocLang
+	}
+
+	// Resolve output and cache paths from slug if available
+	if output == "" && proj.Slug != "" {
+		output = proj.OutputPath(docsDir)
+	} else if output == "" {
+		output = "api-docs.html"
+	}
+
+	if cacheFile == "" && proj.Slug != "" {
+		cacheFile = proj.CachePath(cacheDir)
+	} else if cacheFile == "" {
+		cacheFile = "apidocgen-cache.json"
+	}
+	if cacheFile == "none" {
+		cacheFile = ""
+	}
+
 	if routes == "" {
 		fatal("--routes is required (e.g. --routes routes/api.php)")
 	}
@@ -71,21 +136,19 @@ func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile s
 	files := splitTrim(routes, ",")
 
 	// ── Step 1: resolve all included files ───────────────────────────────────
-	fmt.Println("→ Resolving files...")
+	fmt.Println("→ Resolviendo archivos...")
 	allFiles, err := p.ResolveIncludes(files)
 	if err != nil {
 		fatal("resolving files: %v", err)
 	}
-	fmt.Printf("  Found %d file(s)\n", len(allFiles))
-
-	reader := bufio.NewReader(os.Stdin)
+	fmt.Printf("  Encontrados %d archivo(s)\n", len(allFiles))
 
 	// ── Step 2: ask for documentation language if not set via flag ────────────
 	if docLang == "" {
-		fmt.Println("\n→ Documentation language / Idioma de la documentación:")
+		fmt.Println("\n→ Idioma de la documentación:")
 		fmt.Println("  [1] English")
 		fmt.Println("  [2] Español")
-		fmt.Print("  Select / Selecciona [1/2] (default: 1): ")
+		fmt.Print("  Selecciona [1/2] (default: 1): ")
 		choice, _ := reader.ReadString('\n')
 		choice = strings.TrimSpace(choice)
 		switch choice {
@@ -93,6 +156,10 @@ func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile s
 			docLang = "es"
 		default:
 			docLang = "en"
+		}
+		if proj.Slug != "" {
+			proj.DocLang = docLang
+			_ = project.Save(projectsDir, *proj)
 		}
 	}
 
@@ -104,24 +171,24 @@ func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile s
 			fatal("loading cache: %v", err)
 		}
 		if docCache.Len() > 0 {
-			fmt.Printf("\n→ Cache loaded: %d endpoint(s) already documented (%s)\n", docCache.Len(), cacheFile)
+			fmt.Printf("\n→ Cache cargado: %d endpoint(s) ya documentados (%s)\n", docCache.Len(), cacheFile)
 		} else {
-			fmt.Printf("\n→ Cache: starting fresh (%s)\n", cacheFile)
+			fmt.Printf("\n→ Cache: iniciando desde cero (%s)\n", cacheFile)
 		}
 		if forceRegen {
-			fmt.Println("  --force: ignoring cache, all endpoints will be re-documented.")
+			fmt.Println("  --force: ignorando cache, todos los endpoints serán re-documentados.")
 		}
 	}
 
 	// ── Step 4: parse sections ───────────────────────────────────────────────
-	fmt.Println("\n→ Parsing endpoints...")
+	fmt.Println("\n→ Parseando endpoints...")
 	sections, err := p.ParseSections(allFiles)
 	if err != nil {
 		fatal("parsing endpoints: %v", err)
 	}
 
 	// ── Step 5: prompt user to name each section ─────────────────────────────
-	fmt.Println("\n→ Name each section (press Enter to use the suggested name):")
+	fmt.Println("\n→ Nombra cada sección (presiona Enter para usar el nombre sugerido):")
 	for i, s := range sections {
 		suggested := suggestSectionName(s.FilePath)
 		fmt.Printf("  %s [%s]: ", s.FilePath, suggested)
@@ -137,10 +204,10 @@ func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile s
 	for _, s := range sections {
 		totalEndpoints += len(s.Endpoints)
 	}
-	fmt.Printf("  Found %d section(s), %d endpoint(s) total\n", len(sections), totalEndpoints)
+	fmt.Printf("  Encontradas %d sección(es), %d endpoint(s) en total\n", len(sections), totalEndpoints)
 
 	// ── Step 6: document with AI (worker pool + cache) ───────────────────────
-	fmt.Printf("\n→ Generating documentation with Claude (workers: %d)...\n", workers)
+	fmt.Printf("\n→ Generando documentación con Claude (workers: %d)...\n", workers)
 	client, err := ai.New(apiKey, docLang)
 	if err != nil {
 		fatal("initializing AI client: %v", err)
@@ -158,23 +225,171 @@ func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile s
 
 		if docCache != nil && misses > 0 {
 			if err := docCache.Save(); err != nil {
-				fmt.Fprintf(os.Stderr, "  warning: could not save cache: %v\n", err)
+				fmt.Fprintf(os.Stderr, "  warning: no se pudo guardar el cache: %v\n", err)
 			}
 		}
 	}
 
 	if docCache != nil {
-		fmt.Printf("\n  Cache summary: %d from cache, %d newly documented\n", totalHits, totalMisses)
+		fmt.Printf("\n  Resumen cache: %d desde cache, %d nuevos documentados\n", totalHits, totalMisses)
 	}
 
 	// ── Step 7: generate HTML ────────────────────────────────────────────────
-	fmt.Printf("\n→ Writing %s...\n", output)
+	fmt.Printf("\n→ Escribiendo %s...\n", output)
 	gen := generator.New()
 	if err := gen.GenerateSections(sectionDocs, title, output); err != nil {
 		fatal("generating HTML: %v", err)
 	}
 
-	fmt.Printf("✓ Done! Open %s in your browser.\n", output)
+	// ── Step 8: regenerate index.html ────────────────────────────────────────
+	if proj.Slug != "" {
+		regenerateIndex(gen)
+	}
+
+	fmt.Printf("✓ ¡Listo! Abre %s en tu navegador.\n", output)
+}
+
+func selectOrCreateProject(reader *bufio.Reader, projectSlug, defaultLang, defaultRoutes, defaultRoot, defaultTitle, defaultDocLang string) *project.Project {
+	projects, err := project.LoadAll(projectsDir)
+	if err != nil {
+		fatal("loading projects: %v", err)
+	}
+
+	// Direct selection via --project flag
+	if projectSlug != "" {
+		for _, p := range projects {
+			if p.Slug == projectSlug {
+				fmt.Printf("→ Proyecto seleccionado: %s (%s)\n", p.Name, p.Slug)
+				return &p
+			}
+		}
+		fatal("proyecto no encontrado: %s", projectSlug)
+	}
+
+	// Interactive menu
+	fmt.Println("\n→ Selecciona un proyecto de documentación:")
+	if len(projects) > 0 {
+		for i, p := range projects {
+			fmt.Printf("  [%d] %s (%s) — %s\n", i+1, p.Name, p.Slug, p.Lang)
+		}
+		fmt.Printf("  [%d] Crear nuevo proyecto\n", len(projects)+1)
+		fmt.Printf("  Selecciona [1-%d]: ", len(projects)+1)
+	} else {
+		fmt.Println("  No hay proyectos configurados. Vamos a crear uno nuevo.")
+		fmt.Println()
+	}
+
+	if len(projects) > 0 {
+		choice, _ := reader.ReadString('\n')
+		choice = strings.TrimSpace(choice)
+		idx, err := strconv.Atoi(choice)
+		if err == nil && idx >= 1 && idx <= len(projects) {
+			p := projects[idx-1]
+			fmt.Printf("  → Seleccionado: %s\n", p.Name)
+			return &p
+		}
+	}
+
+	// Create new project
+	return createNewProject(reader, defaultLang, defaultRoutes, defaultRoot, defaultTitle, defaultDocLang)
+}
+
+func createNewProject(reader *bufio.Reader, defaultLang, defaultRoutes, defaultRoot, defaultTitle, defaultDocLang string) *project.Project {
+	fmt.Println("\n→ Crear nuevo proyecto de documentación:")
+
+	name := prompt(reader, "  Nombre del proyecto", "")
+	if name == "" {
+		fatal("el nombre del proyecto es obligatorio")
+	}
+
+	slug := project.SlugFromName(name)
+	fmt.Printf("  Slug generado: %s\n", slug)
+
+	langInput := prompt(reader, fmt.Sprintf("  Framework/lenguaje (%s)", strings.Join(parser.Names(), ", ")), defaultLang)
+	if langInput == "" {
+		langInput = defaultLang
+	}
+
+	routesInput := prompt(reader, "  Archivos de rutas (separados por coma)", defaultRoutes)
+	if routesInput == "" {
+		routesInput = defaultRoutes
+	}
+
+	rootInput := prompt(reader, "  Directorio raíz del proyecto", defaultRoot)
+	if rootInput == "" {
+		rootInput = defaultRoot
+	}
+
+	titleInput := prompt(reader, "  Título de la documentación", defaultTitle)
+	if titleInput == "" {
+		titleInput = defaultTitle
+	}
+
+	docLangInput := prompt(reader, "  Idioma de documentación (en/es)", defaultDocLang)
+	if docLangInput == "" {
+		docLangInput = defaultDocLang
+	}
+
+	proj := project.Project{
+		Name:    name,
+		Slug:    slug,
+		Lang:    langInput,
+		Routes:  routesInput,
+		Root:    rootInput,
+		Title:   titleInput,
+		DocLang: docLangInput,
+	}
+
+	if err := project.Save(projectsDir, proj); err != nil {
+		fatal("guardando proyecto: %v", err)
+	}
+	fmt.Printf("  ✓ Proyecto guardado en %s/%s.json\n\n", projectsDir, slug)
+
+	return &proj
+}
+
+func prompt(reader *bufio.Reader, label, defaultVal string) string {
+	if defaultVal != "" {
+		fmt.Printf("%s [%s]: ", label, defaultVal)
+	} else {
+		fmt.Printf("%s: ", label)
+	}
+	input, _ := reader.ReadString('\n')
+	input = strings.TrimSpace(input)
+	if input == "" {
+		return defaultVal
+	}
+	return input
+}
+
+func regenerateIndex(gen *generator.HTMLGenerator) {
+	projects, err := project.LoadAll(projectsDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "  warning: no se pudo regenerar index.html: %v\n", err)
+		return
+	}
+
+	var entries []generator.IndexEntry
+	for _, p := range projects {
+		htmlFile := p.Slug + ".html"
+		if _, err := os.Stat(filepath.Join(docsDir, htmlFile)); err != nil {
+			continue
+		}
+		entries = append(entries, generator.IndexEntry{
+			Name:     p.Name,
+			Slug:     p.Slug,
+			Title:    p.Title,
+			Lang:     p.Lang,
+			HtmlFile: htmlFile,
+		})
+	}
+
+	indexPath := filepath.Join(docsDir, "index.html")
+	if err := gen.GenerateIndex(entries, indexPath); err != nil {
+		fmt.Fprintf(os.Stderr, "  warning: no se pudo generar index.html: %v\n", err)
+		return
+	}
+	fmt.Printf("→ Index actualizado: %s (%d proyecto(s))\n", indexPath, len(entries))
 }
 
 func documentSection(
@@ -247,7 +462,7 @@ func documentSection(
 		}
 	}
 
-	fmt.Printf("    — %d documented, %d from cache, %d failed\n",
+	fmt.Printf("    — %d documentados, %d desde cache, %d fallidos\n",
 		misses, hits, len(section.Endpoints)-hits-misses)
 	return
 }
@@ -282,33 +497,42 @@ func splitTrim(s, sep string) []string {
 }
 
 func printUsage() {
-	fmt.Printf(`apidocgen - AI-powered API documentation generator
+	fmt.Printf(`apidocgen - Generador de documentación de APIs con IA
 
-USAGE:
+USO:
   apidocgen generate [flags]
 
 FLAGS:
-  --lang      Language/framework: %s (default: laravel)
-  --routes    Comma-separated route files or directories to parse
-  --root      Project root directory (default: .)
-  --output    Output HTML file (default: api-docs.html)
-  --title     Documentation title (default: "API Documentation")
-  --api-key   Anthropic API key (or use ANTHROPIC_API_KEY env var)
-  --doc-lang  Documentation language: en (English) or es (Español)
-  --cache     Path to cache file (default: apidocgen-cache.json)
-              Use --cache="" to disable caching entirely.
-  --force     Ignore cache and re-document all endpoints with Claude.
-  --workers   Concurrent Claude API requests (default: 5)
+  --project   Slug del proyecto a generar (salta el menú interactivo)
+  --lang      Framework/lenguaje: %s (default: laravel)
+  --routes    Archivos de rutas separados por coma
+  --root      Directorio raíz del proyecto (default: .)
+  --output    Archivo HTML de salida (default: docs/<slug>.html)
+  --title     Título de la documentación (default: "API Documentation")
+  --api-key   Anthropic API key (o usar ANTHROPIC_API_KEY env var)
+  --doc-lang  Idioma de documentación: en (English) o es (Español)
+  --cache     Ruta al archivo de cache (default: cache/<slug>-cache.json)
+              Usar --cache=none para deshabilitar cache.
+  --force     Ignorar cache y re-documentar todos los endpoints con Claude.
+  --workers   Peticiones concurrentes a Claude API (default: 5)
 
-EXAMPLES:
-  # Laravel
-  apidocgen generate --routes routes/api.php --root /path/to/laravel-project
-  apidocgen generate --routes routes/api.php --doc-lang es --workers 10
+ESTRUCTURA:
+  projects/   Configuración de cada proyecto (.json)
+  cache/      Archivos de cache por proyecto
+  docs/       Documentación HTML generada + index.html
 
-  # .NET / ASP.NET Core
+EJEMPLOS:
+  # Menú interactivo (seleccionar o crear proyecto)
+  apidocgen generate
+
+  # Seleccionar proyecto directamente
+  apidocgen generate --project mi-api-laravel
+
+  # Modo legacy (sin proyecto guardado)
+  apidocgen generate --lang laravel --routes routes/api.php --root /path/to/project
+
+  # .NET
   apidocgen generate --lang dotnet --routes Controllers/ --root /path/to/dotnet-project
-  apidocgen generate --lang dotnet --routes Program.cs,Controllers/ --doc-lang es
-  ANTHROPIC_API_KEY=sk-... apidocgen generate --lang dotnet --routes Controllers/
 `, strings.Join(parser.Names(), ", "))
 }
 

@@ -1,0 +1,676 @@
+{
+  "version": 1,
+  "entries": {
+    "DELETE:/api/categories/{id:int}": {
+      "doc": {
+        "Endpoint": {
+          "Method": "DELETE",
+          "URI": "/api/categories/{id:int}",
+          "Name": "",
+          "Controller": "CategoriesController",
+          "Action": "Delete",
+          "Middleware": null,
+          "RawSource": "[HttpDelete(\"{id:int}\")]\n    public async Task\u003cIActionResult\u003e Delete(int id, CancellationToken cancellationToken)\n    {\n        var entity = await db.Categories.FirstOrDefaultAsync(c =\u003e c.Id == id, cancellationToken);\n        if (entity is null)\n            return NotFound();\n\n        var hasExpenses = await db.Expenses.AnyAsync(e =\u003e e.CategoryId == id, cancellationToken);\n        if (hasExpenses)\n            return Conflict(new { message = \"No se puede eliminar la categoría porque tiene gastos asociados.\" });\n\n        db.Categories.Remove(entity);\n        await db.SaveChangesAsync(cancellationToken);\n        return NoContent();\n    }",
+          "StaticMeta": {
+            "RequestParams": [
+              {
+                "Name": "id",
+                "Type": "integer",
+                "Required": false,
+                "Rules": ""
+              }
+            ],
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "csharp"
+        },
+        "Summary": "Delete a category by ID",
+        "Description": "Permanently deletes the category with the specified ID from the database. Before deletion, the endpoint verifies that the category exists and that it has no associated expenses. If the category does not exist, a 404 is returned. If the category has one or more linked expenses, the deletion is rejected with a 409 Conflict to preserve referential integrity. On success, no content is returned.",
+        "Parameters": [
+          {
+            "Name": "id",
+            "Type": "integer",
+            "Required": true,
+            "Rules": "int, route parameter",
+            "Description": "The unique identifier of the category to delete. Must be a valid integer corresponding to an existing category."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 204,
+            "Description": "The category was successfully deleted. No content is returned.",
+            "Body": ""
+          },
+          {
+            "Code": 404,
+            "Description": "No category was found with the provided ID.",
+            "Body": ""
+          },
+          {
+            "Code": 409,
+            "Description": "The category cannot be deleted because it has one or more associated expenses. The relationship must be removed before the category can be deleted.",
+            "Body": "{\"message\": \"No se puede eliminar la categoría porque tiene gastos asociados.\"}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}"
+          },
+          "Body": ""
+        }
+      },
+      "source_hash": "78f97d631285e8ba"
+    },
+    "DELETE:/api/expenses/{id:int}": {
+      "doc": {
+        "Endpoint": {
+          "Method": "DELETE",
+          "URI": "/api/expenses/{id:int}",
+          "Name": "",
+          "Controller": "ExpensesController",
+          "Action": "Delete",
+          "Middleware": null,
+          "RawSource": "[HttpDelete(\"{id:int}\")]\n    public async Task\u003cIActionResult\u003e Delete(int id, CancellationToken cancellationToken)\n    {\n        var entity = await db.Expenses.FirstOrDefaultAsync(e =\u003e e.Id == id, cancellationToken);\n        if (entity is null)\n            return NotFound();\n\n        db.Expenses.Remove(entity);\n        await db.SaveChangesAsync(cancellationToken);\n        return NoContent();\n    }",
+          "StaticMeta": {
+            "RequestParams": [
+              {
+                "Name": "id",
+                "Type": "integer",
+                "Required": false,
+                "Rules": ""
+              }
+            ],
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "csharp"
+        },
+        "Summary": "Delete an expense by ID",
+        "Description": "Permanently deletes the expense record identified by the given integer ID. If no expense with the specified ID exists, a 404 Not Found response is returned. On successful deletion, the record is removed from the database and a 204 No Content response is returned with no response body.",
+        "Parameters": [
+          {
+            "Name": "id",
+            "Type": "integer",
+            "Required": true,
+            "Rules": "integer, min:1",
+            "Description": "The unique identifier of the expense to delete. Must be a positive integer and is provided as a route parameter."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 204,
+            "Description": "The expense was successfully found and permanently deleted. No content is returned in the response body.",
+            "Body": ""
+          },
+          {
+            "Code": 404,
+            "Description": "No expense with the specified ID was found in the database. The deletion was not performed.",
+            "Body": "{\"status\": 404, \"message\": \"Not Found\"}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}"
+          },
+          "Body": ""
+        }
+      },
+      "source_hash": "87a233f7c7f14f6f"
+    },
+    "GET:/api/categories": {
+      "doc": {
+        "Endpoint": {
+          "Method": "GET",
+          "URI": "/api/categories",
+          "Name": "",
+          "Controller": "CategoriesController",
+          "Action": "GetAll",
+          "Middleware": null,
+          "RawSource": "[HttpGet]\n    public async Task\u003cActionResult\u003cIEnumerable\u003cCategoryResponse\u003e\u003e\u003e GetAll(CancellationToken cancellationToken)\n    {\n        var list = await db.Categories\n            .AsNoTracking()\n            .OrderBy(c =\u003e c.Name)\n            .Select(c =\u003e new CategoryResponse(c.Id, c.Name))\n            .ToListAsync(cancellationToken);\n        return Ok(list);\n    }",
+          "StaticMeta": {
+            "RequestParams": null,
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "csharp"
+        },
+        "Summary": "Retrieve all categories ordered by name",
+        "Description": "Returns a complete list of all categories available in the system, sorted alphabetically by name. This is a read-only operation that does not modify any data. Results are fetched without change tracking for optimal performance.",
+        "Parameters": null,
+        "Responses": [
+          {
+            "Code": 200,
+            "Description": "A sorted list of all categories was successfully retrieved. Returns an empty array if no categories exist.",
+            "Body": "[{\"id\": 1, \"name\": \"Electronics\"}, {\"id\": 2, \"name\": \"Furniture\"}, {\"id\": 3, \"name\": \"Clothing\"}]"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json"
+          },
+          "Body": ""
+        }
+      },
+      "source_hash": "a4bde6a162aa4a72"
+    },
+    "GET:/api/categories/{id:int}": {
+      "doc": {
+        "Endpoint": {
+          "Method": "GET",
+          "URI": "/api/categories/{id:int}",
+          "Name": "",
+          "Controller": "CategoriesController",
+          "Action": "GetById",
+          "Middleware": null,
+          "RawSource": "[HttpGet(\"{id:int}\")]\n    public async Task\u003cActionResult\u003cCategoryResponse\u003e\u003e GetById(int id, CancellationToken cancellationToken)\n    {\n        var row = await db.Categories.AsNoTracking().FirstOrDefaultAsync(c =\u003e c.Id == id, cancellationToken);\n        if (row is null)\n            return NotFound();\n        return Ok(new CategoryResponse(row.Id, row.Name));\n    }",
+          "StaticMeta": {
+            "RequestParams": [
+              {
+                "Name": "id",
+                "Type": "integer",
+                "Required": false,
+                "Rules": ""
+              }
+            ],
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "csharp"
+        },
+        "Summary": "Retrieve a category by its ID",
+        "Description": "Fetches a single category record from the database matching the provided integer ID. The query is executed as a read-only (non-tracking) operation. If no category is found with the given ID, a 404 Not Found response is returned. On success, the category's ID and name are returned in the response body.",
+        "Parameters": [
+          {
+            "Name": "id",
+            "Type": "integer",
+            "Required": true,
+            "Rules": "int, route parameter, must be a positive integer",
+            "Description": "The unique identifier of the category to retrieve. Must be an integer and is supplied as part of the URL path."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 200,
+            "Description": "The category was found and returned successfully.",
+            "Body": "{\"id\": 1, \"name\": \"Electronics\"}"
+          },
+          {
+            "Code": 404,
+            "Description": "No category with the specified ID exists in the database.",
+            "Body": "{}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json"
+          },
+          "Body": ""
+        }
+      },
+      "source_hash": "b3d62099f08da746"
+    },
+    "GET:/api/expenses": {
+      "doc": {
+        "Endpoint": {
+          "Method": "GET",
+          "URI": "/api/expenses",
+          "Name": "",
+          "Controller": "ExpensesController",
+          "Action": "GetAll",
+          "Middleware": null,
+          "RawSource": "[HttpGet]\n    public async Task\u003cActionResult\u003cIEnumerable\u003cExpenseResponse\u003e\u003e\u003e GetAll(\n        [FromQuery] DateOnly? from,\n        [FromQuery] DateOnly? to,\n        [FromQuery] int? categoryId,\n        CancellationToken cancellationToken)\n    {\n        var query = db.Expenses.AsNoTracking().Include(e =\u003e e.Category).AsQueryable();\n\n        if (from is not null)\n            query = query.Where(e =\u003e e.Date \u003e= from);\n        if (to is not null)\n            query = query.Where(e =\u003e e.Date \u003c= to);\n        if (categoryId is not null)\n            query = query.Where(e =\u003e e.CategoryId == categoryId);\n\n        var list = await query\n            .OrderByDescending(e =\u003e e.Date)\n            .ThenByDescending(e =\u003e e.Id)\n            .Select(e =\u003e new ExpenseResponse(\n                e.Id,\n                e.Amount,\n                e.Date,\n                e.Description,\n                e.CategoryId,\n                e.Category != null ? e.Category.Name : null))\n            .ToListAsync(cancellationToken);\n\n        return Ok(list);\n    }",
+          "StaticMeta": {
+            "RequestParams": [
+              {
+                "Name": "from",
+                "Type": "string (date)",
+                "Required": false,
+                "Rules": "FromQuery"
+              },
+              {
+                "Name": "to",
+                "Type": "string (date)",
+                "Required": false,
+                "Rules": "FromQuery"
+              },
+              {
+                "Name": "categoryId",
+                "Type": "integer",
+                "Required": false,
+                "Rules": "FromQuery"
+              }
+            ],
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "csharp"
+        },
+        "Summary": "Retrieve a list of all expenses with optional filtering",
+        "Description": "Returns a list of expense records from the database, optionally filtered by date range and/or category. Results are ordered by date descending, then by ID descending (most recent first). Each expense includes its associated category name if a category is linked. All query parameters are optional and can be combined freely.",
+        "Parameters": [
+          {
+            "Name": "from",
+            "Type": "string",
+            "Required": false,
+            "Rules": "date, format: YYYY-MM-DD",
+            "Description": "Filter expenses with a date greater than or equal to this value (inclusive lower bound of the date range)."
+          },
+          {
+            "Name": "to",
+            "Type": "string",
+            "Required": false,
+            "Rules": "date, format: YYYY-MM-DD",
+            "Description": "Filter expenses with a date less than or equal to this value (inclusive upper bound of the date range)."
+          },
+          {
+            "Name": "categoryId",
+            "Type": "integer",
+            "Required": false,
+            "Rules": "integer",
+            "Description": "Filter expenses belonging to the specified category ID. Only expenses whose categoryId matches this value will be returned."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 200,
+            "Description": "Successfully retrieved the list of expenses matching the provided filters. Returns an empty array if no expenses match.",
+            "Body": "[{\"id\": 42, \"amount\": 149.99, \"date\": \"2024-06-15\", \"description\": \"Office supplies\", \"categoryId\": 3, \"categoryName\": \"Office\"}]"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}"
+          },
+          "Body": ""
+        }
+      },
+      "source_hash": "0b5eebe8ed5f9c2c"
+    },
+    "GET:/api/expenses/{id:int}": {
+      "doc": {
+        "Endpoint": {
+          "Method": "GET",
+          "URI": "/api/expenses/{id:int}",
+          "Name": "",
+          "Controller": "ExpensesController",
+          "Action": "GetById",
+          "Middleware": null,
+          "RawSource": "[HttpGet(\"{id:int}\")]\n    public async Task\u003cActionResult\u003cExpenseResponse\u003e\u003e GetById(int id, CancellationToken cancellationToken)\n    {\n        var row = await db.Expenses\n            .AsNoTracking()\n            .Include(e =\u003e e.Category)\n            .FirstOrDefaultAsync(e =\u003e e.Id == id, cancellationToken);\n        if (row is null)\n            return NotFound();\n        return Ok(new ExpenseResponse(\n            row.Id,\n            row.Amount,\n            row.Date,\n            row.Description,\n            row.CategoryId,\n            row.Category?.Name));\n    }",
+          "StaticMeta": {
+            "RequestParams": [
+              {
+                "Name": "id",
+                "Type": "integer",
+                "Required": false,
+                "Rules": ""
+              }
+            ],
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "csharp"
+        },
+        "Summary": "Retrieve a single expense by its ID",
+        "Description": "Fetches a single expense record from the database by its integer ID. The expense is returned along with its associated category name. If no expense exists with the given ID, a 404 Not Found response is returned. The query is read-only (no tracking) and eagerly loads the related Category entity.",
+        "Parameters": [
+          {
+            "Name": "id",
+            "Type": "integer",
+            "Required": true,
+            "Rules": "integer, min:1, route parameter",
+            "Description": "The unique identifier of the expense to retrieve. Must be a positive integer and is provided as part of the URL path."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 200,
+            "Description": "The expense record was found and is returned successfully, including its associated category information.",
+            "Body": "{\"id\": 42, \"amount\": 150.75, \"date\": \"2024-06-15T00:00:00Z\", \"description\": \"Office supplies\", \"categoryId\": 3, \"categoryName\": \"Office\"}"
+          },
+          {
+            "Code": 404,
+            "Description": "No expense with the specified ID was found in the database.",
+            "Body": "{\"title\": \"Not Found\", \"status\": 404}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}"
+          },
+          "Body": ""
+        }
+      },
+      "source_hash": "1192dac188653b08"
+    },
+    "POST:/api/categories": {
+      "doc": {
+        "Endpoint": {
+          "Method": "POST",
+          "URI": "/api/categories",
+          "Name": "",
+          "Controller": "CategoriesController",
+          "Action": "Create",
+          "Middleware": null,
+          "RawSource": "[HttpPost]\n    public async Task\u003cActionResult\u003cCategoryResponse\u003e\u003e Create(\n        [FromBody] CategoryCreateRequest request,\n        CancellationToken cancellationToken)\n    {\n        var name = request.Name.Trim();\n        if (string.IsNullOrEmpty(name))\n            return BadRequest();\n\n        var exists = await db.Categories.AnyAsync(c =\u003e c.Name == name, cancellationToken);\n        if (exists)\n            return Conflict(new { message = \"Ya existe una categoría con ese nombre.\" });\n\n        var entity = new Category { Name = name };\n        db.Categories.Add(entity);\n        await db.SaveChangesAsync(cancellationToken);\n        return CreatedAtAction(nameof(GetById), new { id = entity.Id }, new CategoryResponse(entity.Id, entity.Name));\n    }",
+          "StaticMeta": {
+            "RequestParams": [
+              {
+                "Name": "request",
+                "Type": "object",
+                "Required": true,
+                "Rules": "FromBody"
+              }
+            ],
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "csharp"
+        },
+        "Summary": "Create a new category",
+        "Description": "Creates a new category with the provided name. The name is trimmed of leading and trailing whitespace before processing. Returns 400 Bad Request if the trimmed name is empty, 409 Conflict if a category with the same name already exists, or 201 Created with the new category data upon success.",
+        "Parameters": [
+          {
+            "Name": "Name",
+            "Type": "string",
+            "Required": true,
+            "Rules": "required|not_empty_after_trim|unique:Categories,Name",
+            "Description": "The name of the category to create. Will be trimmed of whitespace. Must not be empty after trimming and must be unique among existing categories."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 201,
+            "Description": "Category created successfully. The response includes the newly created category's ID and name, and a Location header pointing to the new resource.",
+            "Body": "{\"id\": 1, \"name\": \"Electronics\"}"
+          },
+          {
+            "Code": 400,
+            "Description": "Bad Request. Returned when the provided name is null, empty, or contains only whitespace after trimming.",
+            "Body": "{}"
+          },
+          {
+            "Code": 409,
+            "Description": "Conflict. Returned when a category with the same name already exists in the database.",
+            "Body": "{\"message\": \"Ya existe una categoría con ese nombre.\"}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}",
+            "Content-Type": "application/json"
+          },
+          "Body": "{\"name\": \"Electronics\"}"
+        }
+      },
+      "source_hash": "c74b5e4e23598d0c"
+    },
+    "POST:/api/expenses": {
+      "doc": {
+        "Endpoint": {
+          "Method": "POST",
+          "URI": "/api/expenses",
+          "Name": "",
+          "Controller": "ExpensesController",
+          "Action": "Create",
+          "Middleware": null,
+          "RawSource": "[HttpPost]\n    public async Task\u003cActionResult\u003cExpenseResponse\u003e\u003e Create(\n        [FromBody] ExpenseCreateRequest request,\n        CancellationToken cancellationToken)\n    {\n        if (!ModelState.IsValid)\n            return ValidationProblem(ModelState);\n\n        if (request.Amount \u003c= 0)\n            return BadRequest(new { message = \"El importe debe ser mayor que cero.\" });\n\n        var categoryId = request.CategoryId!.Value;\n        var categoryExists = await db.Categories.AnyAsync(c =\u003e c.Id == categoryId, cancellationToken);\n        if (!categoryExists)\n            return BadRequest(new { message = \"La categoría no existe.\" });\n\n        var entity = new Expense\n        {\n            Amount = request.Amount,\n            Date = request.Date,\n            Description = request.Description.Trim(),\n            CategoryId = categoryId\n        };\n        db.Expenses.Add(entity);\n        await db.SaveChangesAsync(cancellationToken);\n\n        await db.Entry(entity).Reference(e =\u003e e.Category).LoadAsync(cancellationToken);\n        return CreatedAtAction(\n            nameof(GetById),\n            new { id = entity.Id },\n            new ExpenseResponse(\n                entity.Id,\n                entity.Amount,\n                entity.Date,\n                entity.Description,\n                entity.CategoryId,\n                entity.Category?.Name));\n    }",
+          "StaticMeta": {
+            "RequestParams": [
+              {
+                "Name": "request",
+                "Type": "object",
+                "Required": true,
+                "Rules": "FromBody"
+              }
+            ],
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "csharp"
+        },
+        "Summary": "Create a new expense record",
+        "Description": "Creates a new expense entry in the database. Validates that the amount is greater than zero and that the referenced category exists before persisting. On success, loads the associated category and returns the full expense representation with a 201 Created status pointing to the newly created resource. Returns 400 Bad Request if the amount is non-positive or the category does not exist, and 422 Unprocessable Entity if the request body fails model validation.",
+        "Parameters": [
+          {
+            "Name": "Amount",
+            "Type": "number",
+            "Required": true,
+            "Rules": "required, greater than 0",
+            "Description": "The monetary value of the expense. Must be a positive number greater than zero."
+          },
+          {
+            "Name": "Date",
+            "Type": "string",
+            "Required": true,
+            "Rules": "required, date/datetime format",
+            "Description": "The date on which the expense occurred, in ISO 8601 format (e.g. 2024-06-15 or 2024-06-15T00:00:00Z)."
+          },
+          {
+            "Name": "Description",
+            "Type": "string",
+            "Required": true,
+            "Rules": "required",
+            "Description": "A textual description of the expense. Leading and trailing whitespace is trimmed before storage."
+          },
+          {
+            "Name": "CategoryId",
+            "Type": "integer",
+            "Required": true,
+            "Rules": "required, must reference an existing category",
+            "Description": "The unique identifier of the category to which this expense belongs. The category must already exist in the database."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 201,
+            "Description": "Expense created successfully. Returns the full expense object including the resolved category name. The Location header points to the newly created resource.",
+            "Body": "{\"id\": 42, \"amount\": 125.50, \"date\": \"2024-06-15T00:00:00Z\", \"description\": \"Team lunch\", \"categoryId\": 3, \"categoryName\": \"Food \u0026 Beverage\"}"
+          },
+          {
+            "Code": 400,
+            "Description": "Bad request due to a business rule violation: the amount is less than or equal to zero, or the specified category does not exist.",
+            "Body": "{\"message\": \"El importe debe ser mayor que cero.\"}"
+          },
+          {
+            "Code": 422,
+            "Description": "Model validation failed. One or more required fields are missing or have an invalid format.",
+            "Body": "{\"type\": \"https://tools.ietf.org/html/rfc4918#section-11.2\", \"title\": \"One or more validation errors occurred.\", \"status\": 422, \"errors\": {\"Amount\": [\"The Amount field is required.\"]}}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}",
+            "Content-Type": "application/json"
+          },
+          "Body": "{\"amount\": 125.50, \"date\": \"2024-06-15T00:00:00Z\", \"description\": \"Team lunch\", \"categoryId\": 3}"
+        }
+      },
+      "source_hash": "c7bff13094b7ed30"
+    },
+    "PUT:/api/categories/{id:int}": {
+      "doc": {
+        "Endpoint": {
+          "Method": "PUT",
+          "URI": "/api/categories/{id:int}",
+          "Name": "",
+          "Controller": "CategoriesController",
+          "Action": "Update",
+          "Middleware": null,
+          "RawSource": "[HttpPut(\"{id:int}\")]\n    public async Task\u003cIActionResult\u003e Update(int id, [FromBody] CategoryUpdateRequest request, CancellationToken cancellationToken)\n    {\n        var name = request.Name.Trim();\n        if (string.IsNullOrEmpty(name))\n            return BadRequest();\n\n        var entity = await db.Categories.FirstOrDefaultAsync(c =\u003e c.Id == id, cancellationToken);\n        if (entity is null)\n            return NotFound();\n\n        var duplicate = await db.Categories.AnyAsync(c =\u003e c.Id != id \u0026\u0026 c.Name == name, cancellationToken);\n        if (duplicate)\n            return Conflict(new { message = \"Ya existe otra categoría con ese nombre.\" });\n\n        entity.Name = name;\n        await db.SaveChangesAsync(cancellationToken);\n        return NoContent();\n    }",
+          "StaticMeta": {
+            "RequestParams": [
+              {
+                "Name": "id",
+                "Type": "integer",
+                "Required": false,
+                "Rules": ""
+              },
+              {
+                "Name": "request",
+                "Type": "object",
+                "Required": true,
+                "Rules": "FromBody"
+              }
+            ],
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "csharp"
+        },
+        "Summary": "Update an existing category by ID",
+        "Description": "Updates the name of an existing category identified by its integer ID. The provided name is trimmed of whitespace before processing. Returns 400 if the name is empty after trimming, 404 if no category with the given ID exists, 409 if another category already uses the same name, or 204 on successful update.",
+        "Parameters": [
+          {
+            "Name": "id",
+            "Type": "integer",
+            "Required": true,
+            "Rules": "route parameter, integer",
+            "Description": "The unique identifier of the category to update."
+          },
+          {
+            "Name": "Name",
+            "Type": "string",
+            "Required": true,
+            "Rules": "not null, not empty or whitespace after trimming",
+            "Description": "The new name for the category. Leading and trailing whitespace will be trimmed automatically. Must be unique across all other categories."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 204,
+            "Description": "Category was successfully updated. No content is returned.",
+            "Body": ""
+          },
+          {
+            "Code": 400,
+            "Description": "The request body was invalid, typically because the Name field is missing, null, or results in an empty string after trimming.",
+            "Body": ""
+          },
+          {
+            "Code": 404,
+            "Description": "No category with the specified ID was found in the database.",
+            "Body": ""
+          },
+          {
+            "Code": 409,
+            "Description": "Another category (with a different ID) already has the same name, causing a conflict.",
+            "Body": "{\"message\": \"Ya existe otra categoría con ese nombre.\"}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}",
+            "Content-Type": "application/json"
+          },
+          "Body": "{\"Name\": \"Electronics\"}"
+        }
+      },
+      "source_hash": "07a6d34237d458fc"
+    },
+    "PUT:/api/expenses/{id:int}": {
+      "doc": {
+        "Endpoint": {
+          "Method": "PUT",
+          "URI": "/api/expenses/{id:int}",
+          "Name": "",
+          "Controller": "ExpensesController",
+          "Action": "Update",
+          "Middleware": null,
+          "RawSource": "[HttpPut(\"{id:int}\")]\n    public async Task\u003cIActionResult\u003e Update(int id, [FromBody] ExpenseUpdateRequest request, CancellationToken cancellationToken)\n    {\n        if (!ModelState.IsValid)\n            return ValidationProblem(ModelState);\n\n        if (request.Amount \u003c= 0)\n            return BadRequest(new { message = \"El importe debe ser mayor que cero.\" });\n\n        var categoryId = request.CategoryId!.Value;\n        var categoryExists = await db.Categories.AnyAsync(c =\u003e c.Id == categoryId, cancellationToken);\n        if (!categoryExists)\n            return BadRequest(new { message = \"La categoría no existe.\" });\n\n        var entity = await db.Expenses.FirstOrDefaultAsync(e =\u003e e.Id == id, cancellationToken);\n        if (entity is null)\n            return NotFound();\n\n        entity.Amount = request.Amount;\n        entity.Date = request.Date;\n        entity.Description = request.Description.Trim();\n        entity.CategoryId = categoryId;\n        await db.SaveChangesAsync(cancellationToken);\n        return NoContent();\n    }",
+          "StaticMeta": {
+            "RequestParams": [
+              {
+                "Name": "id",
+                "Type": "integer",
+                "Required": false,
+                "Rules": ""
+              },
+              {
+                "Name": "request",
+                "Type": "object",
+                "Required": true,
+                "Rules": "FromBody"
+              }
+            ],
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "csharp"
+        },
+        "Summary": "Update an existing expense by ID",
+        "Description": "Updates the fields of an existing expense record identified by its integer ID. The request body must contain all required fields: Amount, Date, Description, and CategoryId. Validation is enforced at the model level and additionally via business rules: Amount must be greater than zero, and the referenced CategoryId must exist in the database. If the expense with the given ID does not exist, a 404 is returned. On success, no content is returned (204). Description is trimmed of leading and trailing whitespace before being saved.",
+        "Parameters": [
+          {
+            "Name": "id",
+            "Type": "integer",
+            "Required": true,
+            "Rules": "integer, route parameter",
+            "Description": "The unique identifier of the expense to update."
+          },
+          {
+            "Name": "Amount",
+            "Type": "integer",
+            "Required": true,
+            "Rules": "required, greater than 0",
+            "Description": "The monetary amount of the expense. Must be a positive value greater than zero."
+          },
+          {
+            "Name": "Date",
+            "Type": "string",
+            "Required": true,
+            "Rules": "required, date",
+            "Description": "The date on which the expense occurred, in ISO 8601 format (e.g., YYYY-MM-DD)."
+          },
+          {
+            "Name": "Description",
+            "Type": "string",
+            "Required": true,
+            "Rules": "required, string",
+            "Description": "A textual description of the expense. Leading and trailing whitespace will be trimmed before saving."
+          },
+          {
+            "Name": "CategoryId",
+            "Type": "integer",
+            "Required": true,
+            "Rules": "required, must exist in categories table",
+            "Description": "The ID of the category to associate with this expense. Must reference an existing category record."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 204,
+            "Description": "The expense was successfully updated. No content is returned in the response body.",
+            "Body": ""
+          },
+          {
+            "Code": 400,
+            "Description": "Bad request due to validation failure, Amount being zero or negative, or the specified CategoryId not existing.",
+            "Body": "{\"message\": \"El importe debe ser mayor que cero.\"} or {\"message\": \"La categoría no existe.\"} or {\"errors\": {\"Amount\": [\"The Amount field is required.\"]}, \"title\": \"One or more validation errors occurred.\", \"status\": 400}"
+          },
+          {
+            "Code": 404,
+            "Description": "No expense was found matching the provided ID.",
+            "Body": "{\"status\": 404, \"title\": \"Not Found\"}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}",
+            "Content-Type": "application/json"
+          },
+          "Body": "{\"Amount\": 150.00, \"Date\": \"2024-06-15\", \"Description\": \"Office supplies purchase\", \"CategoryId\": 3}"
+        }
+      },
+      "source_hash": "ed2a2c4ddef62fd3"
+    }
+  }
+}

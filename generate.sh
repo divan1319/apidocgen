@@ -1,16 +1,11 @@
 #!/bin/bash
 
-# 1. Activamos la exportación automática
-set -a 
+set -a
+source .env 2>/dev/null
+set +a
 
-# 2. Cargamos el archivo .env (asumiendo que ejecutas el script desde la raíz)
-source .env
-
-# 3. Ejecutamos el comando
-./apidocgen generate \
---lang "$LANG" \
---routes "$ROUTES_PATH" \
---root "$ROOT_PATH" \
---title "$TITLE" \
---api-key "$ANTHROPIC_API_KEY" \
---doc-lang "$DOC_LANG"
+if [ -n "$1" ]; then
+  ./apidocgen generate --project "$1" --api-key "${ANTHROPIC_API_KEY}"
+else
+  ./apidocgen generate --api-key "${ANTHROPIC_API_KEY}"
+fi

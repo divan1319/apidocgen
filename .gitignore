@@ -1,7 +1,7 @@
 .env
-*.html 
-*.json
+apidocgen
 
-# Los json propios deberia de subirse al repo para que no se generen cada vez que se genera la documentación y no llamar a la API de Claude cada vez.
 
-# Adapatar el .gitignore de acuerdo al proyecto.
+# Los archivos de proyecto y docs sí se versionan:
+# projects/*.json  → configuración de cada documentación
+# docs/*.html      → HTML generado + index.html
