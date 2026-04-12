@@ -272,21 +272,24 @@ func TestBuildURI(t *testing.T) {
 		classRoute     string
 		methodRoute    string
 		controllerName string
+		actionName     string
 		want           string
 	}{
-		{"api/[controller]", "", "UsersController", "/api/users"},
-		{"api/[controller]", "{id}", "UsersController", "/api/users/{id}"},
-		{"api/v1/products", "search", "ProductsController", "/api/v1/products/search"},
-		{"api/[controller]", "{id}/details", "OrdersController", "/api/orders/{id}/details"},
-		{"", "", "TestController", "/"},
-		{"", "custom", "TestController", "/custom"},
+		{"api/[controller]", "", "UsersController", "GetAll", "/api/users"},
+		{"api/[controller]", "{id}", "UsersController", "Get", "/api/users/{id}"},
+		{"api/v1/products", "search", "ProductsController", "Search", "/api/v1/products/search"},
+		{"api/[controller]", "{id}/details", "OrdersController", "Details", "/api/orders/{id}/details"},
+		{"", "", "TestController", "Get", "/"},
+		{"", "custom", "TestController", "Custom", "/custom"},
+		{"api/[controller]/[action]", "", "ReportsController", "Summary", "/api/reports/Summary"},
+		{"api/[controller]", "~/api/v2/override", "ItemsController", "Override", "/api/v2/override"},
 	}
 
 	for _, tt := range tests {
-		got := buildURI(tt.classRoute, tt.methodRoute, tt.controllerName)
+		got := buildURI(tt.classRoute, tt.methodRoute, tt.controllerName, tt.actionName)
 		if got != tt.want {
-			t.Errorf("buildURI(%q, %q, %q) = %q, want %q",
-				tt.classRoute, tt.methodRoute, tt.controllerName, got, tt.want)
+			t.Errorf("buildURI(%q, %q, %q, %q) = %q, want %q",
+				tt.classRoute, tt.methodRoute, tt.controllerName, tt.actionName, got, tt.want)
 		}
 	}
 }
@@ -443,6 +446,94 @@ func indexOf(s, sub string) int {
 		}
 	}
 	return -1
+}
+
+func TestParseControllerFile_PrimaryConstructor(t *testing.T) {
+	src := `
+using Microsoft.AspNetCore.Mvc;
+
+namespace MyApp.Controllers;
+
+[ApiController]
+[Route("api/[controller]")]
+public class CategoriesController(AppDbContext db) : ControllerBase
+{
+    [HttpGet]
+    public async Task<ActionResult<IEnumerable<CategoryResponse>>> GetAll(CancellationToken cancellationToken)
+    {
+        return Ok(list);
+    }
+
+    [HttpGet("{id:int}")]
+    public async Task<ActionResult<CategoryResponse>> GetById(int id, CancellationToken cancellationToken)
+    {
+        return Ok(item);
+    }
+
+    [HttpPost]
+    public async Task<ActionResult<CategoryResponse>> Create(
+        [FromBody] CategoryCreateRequest request,
+        CancellationToken cancellationToken)
+    {
+        return CreatedAtAction(nameof(GetById), new { id = 1 }, response);
+    }
+
+    [HttpPut("{id:int}")]
+    public async Task<IActionResult> Update(int id, [FromBody] CategoryUpdateRequest request, CancellationToken cancellationToken)
+    {
+        return NoContent();
+    }
+
+    [HttpDelete("{id:int}")]
+    public async Task<IActionResult> Delete(int id, CancellationToken cancellationToken)
+    {
+        return NoContent();
+    }
+}
+`
+	p := New(".")
+	endpoints := p.parseControllerFile(src)
+
+	if len(endpoints) != 5 {
+		t.Fatalf("expected 5 endpoints, got %d", len(endpoints))
+	}
+
+	tests := []struct {
+		method string
+		uri    string
+		action string
+	}{
+		{"GET", "/api/categories", "GetAll"},
+		{"GET", "/api/categories/{id:int}", "GetById"},
+		{"POST", "/api/categories", "Create"},
+		{"PUT", "/api/categories/{id:int}", "Update"},
+		{"DELETE", "/api/categories/{id:int}", "Delete"},
+	}
+
+	for i, tt := range tests {
+		ep := endpoints[i]
+		if ep.Method != tt.method {
+			t.Errorf("[%d] method: got %q, want %q", i, ep.Method, tt.method)
+		}
+		if ep.URI != tt.uri {
+			t.Errorf("[%d] URI: got %q, want %q", i, ep.URI, tt.uri)
+		}
+		if ep.Action != tt.action {
+			t.Errorf("[%d] action: got %q, want %q", i, ep.Action, tt.action)
+		}
+	}
+
+	// Verify multi-line params: Create should have a FromBody param
+	createEp := endpoints[2]
+	foundBody := false
+	for _, p := range createEp.StaticMeta.RequestParams {
+		if p.Name == "request" && p.Rules == "FromBody" {
+			foundBody = true
+		}
+	}
+	if !foundBody {
+		t.Errorf("Create: expected FromBody param 'request', got %+v", createEp.StaticMeta.RequestParams)
+	}
 }
 
 func TestParseControllerFile_ActionResult_Generic(t *testing.T) {

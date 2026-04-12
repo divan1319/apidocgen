@@ -128,7 +128,7 @@ var (
 	routeAttrPattern = regexp.MustCompile(`\[Route\("([^"]+)"\)\]`)
 
 	httpMethodPattern = regexp.MustCompile(
-		`\[(Http(?:Get|Post|Put|Patch|Delete|Options|Head))(?:\("([^"]*)"\))?\]`)
+		`\[(Http(?:Get|Post|Put|Patch|Delete|Options|Head))(?:\("([^"]*)"[^)]*\))?\]`)
 
 	authorizePattern  = regexp.MustCompile(`\[Authorize(?:\(([^)]*)\))?\]`)
 	allowAnonPattern  = regexp.MustCompile(`\[AllowAnonymous\]`)
@@ -185,7 +185,7 @@ func findAllClasses(src string) []classInfo {
 	var classes []classInfo
 
 	classRe := regexp.MustCompile(
-		`(?:public\s+)?class\s+(\w+)\s*(?::\s*([\w.,<>\s]+))?\s*\{`)
+		`(?:(?:public|internal)\s+)?(?:(?:sealed|abstract|partial|static)\s+)*class\s+(\w+)(?:<[^>]+>)?\s*(?:\([^)]*\))?\s*(?::\s*([\w.,<>\s]+))?(?:\s+where\s+[^{]+)?\s*\{`)
 
 	matches := classRe.FindAllStringSubmatchIndex(src, -1)
 
@@ -376,7 +376,7 @@ func (p *DotnetParser) buildEndpointsFromMethod(
 		httpMethod := normalizeHTTPVerb(vm[1])
 		routeTemplate := vm[2]
 
-		uri := buildURI(classRoute, routeTemplate, controllerName)
+		uri := buildURI(classRoute, routeTemplate, controllerName, m.name)
 
 		endpoints = append(endpoints, models.Endpoint{
 			Method:     httpMethod,
@@ -414,7 +414,13 @@ func normalizeHTTPVerb(attr string) string {
 	}
 }
 
-func buildURI(classRoute, methodRoute, controllerName string) string {
+func buildURI(classRoute, methodRoute, controllerName, actionName string) string {
+	// ~/path overrides the class route entirely
+	if strings.HasPrefix(methodRoute, "~/") {
+		uri := methodRoute[1:] // strip the '~', keep the '/'
+		return uri
+	}
+
 	if classRoute == "" && methodRoute == "" {
 		return "/"
 	}
@@ -424,7 +430,7 @@ func buildURI(classRoute, methodRoute, controllerName string) string {
 
 	uri := classRoute
 	uri = strings.ReplaceAll(uri, "[controller]", controllerSegment)
-	uri = strings.ReplaceAll(uri, "[action]", "")
+	uri = strings.ReplaceAll(uri, "[action]", actionName)
 
 	if methodRoute != "" {
 		uri = joinPath(uri, methodRoute)
@@ -507,6 +513,15 @@ func parseMethodParams(raw string) []paramInfo {
 			continue
 		}
 
+		// Strip default value: "int page = 1" → "int page"
+		if eqIdx := strings.Index(part, "="); eqIdx >= 0 {
+			// Make sure it's not inside an attribute like [Range(1,10)]
+			beforeEq := part[:eqIdx]
+			if !strings.Contains(beforeEq, "[") || strings.Contains(beforeEq, "]") {
+				part = strings.TrimSpace(part[:eqIdx])
+			}
+		}
+
 		from := ""
 		if m := fromAttrPattern.FindStringSubmatch(part); m != nil {
 			from = strings.TrimPrefix(m[1], "From")
@@ -560,8 +575,20 @@ func splitParams(raw string) []string {
 func (p *DotnetParser) extractStaticMeta(body string, params []paramInfo) models.StaticMeta {
 	meta := models.StaticMeta{}
 
+	skipTypes := map[string]bool{
+		"CancellationToken":  true,
+		"HttpContext":        true,
+		"HttpRequest":       true,
+		"HttpResponse":      true,
+		"ClaimsPrincipal":   true,
+	}
+
 	for _, param := range params {
 		if param.from == "Services" {
+			continue
+		}
+		baseType := strings.TrimSuffix(param.typeName, "?")
+		if skipTypes[baseType] {
 			continue
 		}
 
@@ -614,6 +641,10 @@ func mapCSharpType(t string) string {
 		return "string (uuid)"
 	case "datetime", "datetimeoffset":
 		return "string (datetime)"
+	case "dateonly":
+		return "string (date)"
+	case "timeonly", "timespan":
+		return "string (time)"
 	case "iformfile":
 		return "file"
 	default:
