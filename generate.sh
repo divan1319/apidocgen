@@ -4,6 +4,15 @@ set -a
 source .env 2>/dev/null
 set +a
 
+# Si .env no define OUTPUT_NAME, usar el nombre por defecto del binario
+OUTPUT_NAME="${OUTPUT_NAME:-apidocgen}"
+
+if [ ! -e "./${OUTPUT_NAME}" ]; then
+  echo "error: no se encuentra ./${OUTPUT_NAME}" >&2
+  echo "  Compila con build.sh o define OUTPUT_NAME en .env (nombre del binario generado)." >&2
+  exit 1
+fi
+
 echo "¿Qué deseas hacer?"
 echo "  [1] Generar documentación (CLI)"
 echo "  [2] Iniciar servidor web"
