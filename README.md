@@ -1,12 +1,12 @@
 # apidocgen
 
-Herramienta en Go que analiza las rutas de tu proyecto (Laravel, .NET, Node.js, etc.), envía los endpoints a la API de **Anthropic (Claude)** y genera documentación HTML lista para abrir en el navegador.
+Herramienta en Go que analiza las rutas de tu proyecto (Laravel, .NET, Python, Node.js, etc.), envía los endpoints a la API de **Anthropic (Claude)** y genera documentación HTML lista para abrir en el navegador.
 
 Incluye dos modos de uso: una **CLI interactiva** para generar documentación desde la terminal, y un **servidor web** con panel de administración para gestionar múltiples proyectos desde el navegador.
 
 ## Características
 
-- Parsers para **Laravel**, **.NET**, **Express**, **Fastify** y **Node.js HTTP nativo**.
+- Parsers para **Laravel**, **.NET**, **FastAPI**, **Flask**, **Express**, **Fastify** y **Node.js HTTP nativo**.
 - Soporte **multi-proyecto**: cada proyecto se guarda como un archivo JSON en `projects/` con su propia configuración.
 - **Caché por proyecto** en `cache/` para no repetir llamadas a la API.
 - Documentación generada en **inglés** o **español**.
@@ -174,7 +174,7 @@ La forma más sencilla de usar la herramienta. Carga `.env` y muestra un menú:
 | Flag         | Descripción                                            |
 | ------------ | ------------------------------------------------------ |
 | `--project`  | Slug del proyecto (salta el menú interactivo).         |
-| `--lang`     | Framework: `laravel`, `dotnet`, `express`, `fastify`, `nodehttp` (default: `laravel`). |
+| `--lang`     | Framework: `laravel`, `dotnet`, `fastapi`, `flask`, `express`, `fastify`, `nodehttp` (default: `laravel`). |
 | `--routes`   | Archivos de rutas separados por coma.                  |
 | `--root`     | Directorio raíz del proyecto a documentar.             |
 | `--output`   | Ruta del HTML de salida (default: `docs/<slug>.html`). |
@@ -208,6 +208,7 @@ apidocgen/
 │   ├── parser/                  # Parsers de rutas
 │   │   ├── laravel/
 │   │   ├── dotnet/
+│   │   ├── python/              # FastAPI y Flask
 │   │   └── node/                # Express, Fastify y Node HTTP nativo
 │   ├── project/                 # CRUD de proyectos (JSON)
 │   └── server/                  # Servidor HTTP + API REST + motor de generación
@@ -260,6 +261,8 @@ Los HTML generados se sirven en `/docs/<slug>.html`.
 
 - **Laravel** — `--lang laravel`
 - **.NET / ASP.NET Core** — `--lang dotnet`
+- **FastAPI** — `--lang fastapi`
+- **Flask** — `--lang flask`
 - **Express** — `--lang express`
 - **Fastify** — `--lang fastify`
 - **Node.js HTTP nativo** — `--lang nodehttp`
@@ -345,6 +348,190 @@ Esto analiza todos los controladores en `Controllers/` y también los endpoints 
 routes: Controllers/Api/V1/
 root:   /home/user/mi-proyecto-dotnet
 ```
+
+### FastAPI (`--lang fastapi`)
+
+Parser basado en expresiones regulares para proyectos **FastAPI** / Starlette. Detecta decoradores HTTP, `api_route`, WebSockets, `APIRouter` con prefijo, `include_router` anidado y dependencias `Depends(...)` en decoradores.
+
+**Uno o varios módulos:**
+
+```
+routes: app/main.py
+root:   /home/user/mi-api-fastapi
+lang:   fastapi
+```
+
+**Carpeta (escaneo recursivo de `.py`):**
+
+```
+routes: src/api/
+root:   /home/user/mi-api-fastapi
+lang:   fastapi
+```
+
+**Múltiples archivos:**
+
+```
+routes: app/routers/users.py,app/routers/items.py,app/main.py
+root:   /home/user/mi-api-fastapi
+lang:   fastapi
+```
+
+#### Patrones que detecta
+
+**Rutas en la app o en un router:**
+
+```python
+@app.get("/api/users")
+async def list_users():
+    ...
+
+@router.post("/api/users/{user_id}")
+def update_user(user_id: int):
+    ...
+```
+
+**`APIRouter` con prefijo:**
+
+```python
+router = APIRouter(prefix="/items")
+
+@router.get("/")
+def list_items():
+    ...
+# Resultado: GET /items
+```
+
+**`include_router` (y anidación):**
+
+```python
+app = FastAPI()
+users = APIRouter(prefix="/profiles")
+
+@users.get("/")
+def list_users():
+    ...
+
+app.include_router(users, prefix="/api/users")
+# Resultado: GET /api/users/profiles
+```
+
+**Varios métodos con `api_route`:**
+
+```python
+@app.api_route("/report", methods=["GET", "HEAD"])
+async def report():
+    ...
+
+@app.api_route("/bulk", methods=("POST", "PUT"))
+def bulk():
+    ...
+```
+
+**WebSocket:**
+
+```python
+@app.websocket("/ws/live")
+async def ws_live():
+    ...
+```
+
+**Dependencias (como middleware estático):**
+
+```python
+@app.get("/admin", dependencies=[Depends(require_admin)])
+async def admin_panel():
+    ...
+```
+
+#### Parámetros de ruta
+
+Se reconocen placeholders estilo **FastAPI** (`{id}`, `{id:int}`), **Flask** en la misma URI (`<int:user_id>`) y segmentos estilo Express (`:id`) cuando no forman parte de un `{...}`.
+
+#### Ejemplo CLI
+
+```bash
+./apidocgen generate \
+    --lang fastapi \
+    --routes app/main.py \
+    --root /home/user/mi-api-fastapi \
+    --title "Mi API FastAPI" \
+    --doc-lang es
+```
+
+#### Limitaciones (FastAPI)
+
+- Análisis por texto: comentarios `#` se eliminan de forma simple (raras URIs con `#` en string pueden verse afectadas).
+- No se analizan `mount`, reglas totalmente dinámicas ni archivos que no sigan los patrones anteriores.
+- Se omiten carpetas típicas de entorno (`venv`, `__pycache__`, `.venv`, `tests`, etc.) al expandir directorios.
+
+### Flask (`--lang flask`)
+
+Parser para aplicaciones **Flask**: `@app.route`, métodos HTTP explícitos, atajos `@app.get` / `@app.post` (Flask 2+), **Blueprints** con `url_prefix`, `register_blueprint` con prefijo apilado y `add_url_rule` en una línea.
+
+**Aplicación monolítica:**
+
+```
+routes: app.py
+root:   /home/user/mi-api-flask
+lang:   flask
+```
+
+**Blueprints en paquete:**
+
+```
+routes: myapp/views/admin.py,myapp/views/api.py
+root:   /home/user/mi-api-flask
+lang:   flask
+```
+
+#### Patrones que detecta
+
+**`route` y verbos abreviados:**
+
+```python
+@app.route("/users", methods=["GET", "POST"])
+def users():
+    ...
+
+@app.get("/api/hello")
+def hello():
+    ...
+```
+
+**Blueprint + registro con prefijo:**
+
+```python
+bp = Blueprint("api", __name__, url_prefix="/v1")
+
+@bp.get("/status")
+def status():
+    ...
+
+app.register_blueprint(bp, url_prefix="/service")
+# Resultado: GET /service/v1/status
+```
+
+**`add_url_rule`:**
+
+```python
+app.add_url_rule("/legacy", view_func=legacy, methods=["GET", "POST"])
+```
+
+#### Ejemplo CLI
+
+```bash
+./apidocgen generate \
+    --lang flask \
+    --routes app.py,wsgi.py \
+    --root /home/user/mi-api-flask \
+    --title "API Flask"
+```
+
+#### Limitaciones (Flask)
+
+- `add_url_rule` con ruta no literal (solo variables) no se detecta.
+- Mismo tratamiento de comentarios `#` y exclusiones de carpetas que en FastAPI.
 
 ### Express (`--lang express`)
 
@@ -560,7 +747,7 @@ const server = http.createServer((req, res) => {
 ### Notas generales
 
 - Las rutas son **relativas al root** del proyecto. No necesitas poner la ruta absoluta completa.
-- Si pones una **carpeta** (.NET, Express, Fastify o Node HTTP), el parser escanea recursivamente los archivos correspondientes.
+- Si pones una **carpeta** (.NET, Python, Express, Fastify o Node HTTP), el parser escanea recursivamente los archivos correspondientes (`.cs` o `.py` según el lenguaje).
 - Puedes separar **múltiples archivos o carpetas** con coma: `routes/api.php,routes/admin.php`.
 - Cada archivo procesado genera una **sección** independiente en la documentación final.
 
