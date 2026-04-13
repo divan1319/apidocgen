@@ -9,7 +9,7 @@ import (
 	"github.com/divan1319/apidocgen/pkg/models"
 )
 
-const currentVersion = 1
+const currentVersion = 2
 
 type Entry struct {
 	Doc        models.EndpointDoc `json:"doc"`
@@ -20,13 +20,17 @@ type Cache struct {
 	Version int              `json:"version"`
 	Entries map[string]Entry `json:"entries"`
 	path    string
+	scope   string // prefijo de clave en memoria (proveedor:modelo); no persiste en JSON
 }
 
-func Load(path string) (*Cache, error) {
+// Load lee el archivo de caché. keyScope debe ser estable por proveedor+modelo (p. ej. ai.Config.CacheScope).
+// Si el archivo era de versión 1, las entradas se descartan para no mezclar resultados de otro modelo.
+func Load(path, keyScope string) (*Cache, error) {
 	c := &Cache{
 		Version: currentVersion,
 		Entries: make(map[string]Entry),
 		path:    path,
+		scope:   keyScope,
 	}
 
 	data, err := os.ReadFile(path)
@@ -40,12 +44,25 @@ func Load(path string) (*Cache, error) {
 	if err := json.Unmarshal(data, c); err != nil {
 		return nil, fmt.Errorf("parsing cache %s: %w", path, err)
 	}
+
+	if c.Version < currentVersion {
+		c.Entries = make(map[string]Entry)
+	}
+	c.Version = currentVersion
 	c.path = path
+	c.scope = keyScope
 
 	if c.Entries == nil {
 		c.Entries = make(map[string]Entry)
 	}
 	return c, nil
+}
+
+func (c *Cache) entryKey(ep models.Endpoint) string {
+	if c.scope == "" {
+		return ep.Method + ":" + ep.URI
+	}
+	return c.scope + "|" + ep.Method + ":" + ep.URI
 }
 
 func (c *Cache) Save() error {
@@ -64,17 +81,13 @@ func (c *Cache) Save() error {
 	return nil
 }
 
-func key(ep models.Endpoint) string {
-	return ep.Method + ":" + ep.URI
-}
-
 func sourceHash(ep models.Endpoint) string {
 	h := sha256.Sum256([]byte(ep.RawSource))
 	return fmt.Sprintf("%x", h[:8])
 }
 
 func (c *Cache) Get(ep models.Endpoint) (*models.EndpointDoc, bool) {
-	entry, ok := c.Entries[key(ep)]
+	entry, ok := c.Entries[c.entryKey(ep)]
 	if !ok {
 		return nil, false
 	}
@@ -86,7 +99,7 @@ func (c *Cache) Get(ep models.Endpoint) (*models.EndpointDoc, bool) {
 }
 
 func (c *Cache) Set(ep models.Endpoint, doc models.EndpointDoc) {
-	c.Entries[key(ep)] = Entry{
+	c.Entries[c.entryKey(ep)] = Entry{
 		Doc:        doc,
 		SourceHash: sourceHash(ep),
 	}

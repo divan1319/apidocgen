@@ -16,12 +16,12 @@ func SetWebAssets(assets embed.FS) {
 	webAssets = assets
 }
 
-func Run(port int, apiKey string) {
+func Run(port int, keys APIKeys) {
 	if err := EnsureDirs(); err != nil {
 		log.Fatalf("error creating directories: %v", err)
 	}
 
-	h := &handlers{apiKey: apiKey}
+	h := &handlers{keys: keys}
 
 	mux := http.NewServeMux()
 

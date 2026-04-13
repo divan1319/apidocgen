@@ -17,6 +17,10 @@ type Project struct {
 	Root    string `json:"root"`
 	Title   string `json:"title"`
 	DocLang string `json:"doc_lang"`
+	// Proveedor de IA: anthropic (default), openai, deepseek
+	AIProvider string `json:"ai_provider,omitempty"`
+	AIModel    string `json:"ai_model,omitempty"`
+	AIBaseURL  string `json:"ai_base_url,omitempty"`
 }
 
 func (p Project) CachePath(cacheDir string) string {

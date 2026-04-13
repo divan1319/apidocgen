@@ -4,7 +4,8 @@ apidocgen
 
 # Frontend build artifacts
 web/node_modules/
-web/dist/
+web/dist/*
+!web/dist/.gitkeep
 
 # Los archivos de proyecto y docs si se versionan:
 # projects/*.json  -> configuracion de cada documentacion

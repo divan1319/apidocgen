@@ -18,9 +18,12 @@ const form = ref<Omit<Project, 'has_docs'>>({
   root: '',
   title: '',
   doc_lang: 'es',
+  ai_provider: 'anthropic',
+  ai_model: '',
+  ai_base_url: '',
 })
 
-const settings = ref<Settings>({ parsers: [], doc_langs: [] })
+const settings = ref<Settings>({ parsers: [], doc_langs: [], ai_providers: [] })
 const loading = ref(false)
 const saving = ref(false)
 const error = ref('')
@@ -53,6 +56,9 @@ async function loadData() {
         root: p.root,
         title: p.title,
         doc_lang: p.doc_lang,
+        ai_provider: p.ai_provider || 'anthropic',
+        ai_model: p.ai_model || '',
+        ai_base_url: p.ai_base_url || '',
       }
     }
   } catch (e: any) {
@@ -175,6 +181,43 @@ onMounted(loadData)
           <option value="en">English</option>
           <option value="es">Español</option>
         </select>
+      </div>
+
+      <!-- AI provider -->
+      <div>
+        <label class="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Proveedor de IA</label>
+        <select
+          v-model="form.ai_provider"
+          class="w-full bg-surface border border-border rounded-lg px-4 py-2.5 text-sm text-text font-mono focus:outline-none focus:border-accent transition-colors"
+        >
+          <option v-for="ap in settings.ai_providers" :key="ap.id" :value="ap.id">{{ ap.label }}</option>
+          <option v-if="!settings.ai_providers.length" value="anthropic">Anthropic (Claude)</option>
+          <option v-if="!settings.ai_providers.length" value="openai">OpenAI</option>
+          <option v-if="!settings.ai_providers.length" value="deepseek">DeepSeek</option>
+        </select>
+        <p class="text-text-muted text-[10px] mt-1">
+          En modo serve, configura ANTHROPIC_API_KEY, OPENAI_API_KEY o DEEPSEEK_API_KEY según el proveedor.
+        </p>
+      </div>
+
+      <!-- AI model (optional) -->
+      <div>
+        <label class="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Modelo (opcional)</label>
+        <input
+          v-model="form.ai_model"
+          class="w-full bg-surface border border-border rounded-lg px-4 py-2.5 text-sm text-text font-mono placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
+          placeholder="Vacío = default del proveedor"
+        />
+      </div>
+
+      <!-- AI base URL (optional) -->
+      <div>
+        <label class="block text-xs font-semibold text-text-muted uppercase tracking-wider mb-1.5">Base URL OpenAI-compatible (opcional)</label>
+        <input
+          v-model="form.ai_base_url"
+          class="w-full bg-surface border border-border rounded-lg px-4 py-2.5 text-sm text-text font-mono placeholder:text-text-muted focus:outline-none focus:border-accent transition-colors"
+          placeholder="Solo si usas proxy o endpoint distinto"
+        />
       </div>
 
       <!-- Actions -->

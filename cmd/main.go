@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	apidocgen "github.com/divan1319/apidocgen"
+	"github.com/divan1319/apidocgen/internal/ai"
 	"github.com/divan1319/apidocgen/internal/parser"
 	"github.com/divan1319/apidocgen/internal/project"
 	"github.com/divan1319/apidocgen/internal/server"
@@ -22,21 +23,24 @@ import (
 func main() {
 	genCmd := flag.NewFlagSet("generate", flag.ExitOnError)
 
-	lang        := genCmd.String("lang", "laravel", "Language/framework: "+strings.Join(parser.Names(), ", "))
-	routes      := genCmd.String("routes", "", "Comma-separated route files (e.g. routes/api.php)")
-	root        := genCmd.String("root", ".", "Project root directory")
-	output      := genCmd.String("output", "", "Output HTML file (default: docs/<slug>.html)")
-	title       := genCmd.String("title", "API Documentation", "Documentation title")
-	apiKey      := genCmd.String("api-key", "", "Anthropic API key (or set ANTHROPIC_API_KEY env var)")
-	docLang     := genCmd.String("doc-lang", "", "Documentation language: en (English) or es (Español). Prompted interactively if not set.")
-	cacheFile   := genCmd.String("cache", "", "Path to cache file (default: cache/<slug>-cache.json). Use --cache=none to disable.")
-	forceRegen  := genCmd.Bool("force", false, "Ignore cache and re-document all endpoints with Claude.")
-	workers     := genCmd.Int("workers", 5, "Concurrent requests to Claude API (default: 5)")
+	lang := genCmd.String("lang", "laravel", "Language/framework: "+strings.Join(parser.Names(), ", "))
+	routes := genCmd.String("routes", "", "Comma-separated route files (e.g. routes/api.php)")
+	root := genCmd.String("root", ".", "Project root directory")
+	output := genCmd.String("output", "", "Output HTML file (default: docs/<slug>.html)")
+	title := genCmd.String("title", "API Documentation", "Documentation title")
+	apiKey := genCmd.String("api-key", "", "API key del proveedor activo (o ANTHROPIC_API_KEY / OPENAI_API_KEY / DEEPSEEK_API_KEY)")
+	aiProvider := genCmd.String("ai-provider", "", "Proveedor IA: anthropic, openai o deepseek (default: anthropic o el guardado en el proyecto)")
+	aiModel := genCmd.String("ai-model", "", "Modelo de IA (opcional; por defecto uno razonable por proveedor)")
+	aiBaseURL := genCmd.String("ai-base-url", "", "Base URL para API estilo OpenAI (opcional; p. ej. proxy compatible con OpenAI)")
+	docLang := genCmd.String("doc-lang", "", "Documentation language: en (English) or es (Español). Prompted interactively if not set.")
+	cacheFile := genCmd.String("cache", "", "Path to cache file (default: cache/<slug>-cache.json). Use --cache=none to disable.")
+	forceRegen := genCmd.Bool("force", false, "Ignore cache and re-document all endpoints.")
+	workers := genCmd.Int("workers", 5, "Peticiones concurrentes a la API de IA (default: 5)")
 	projectSlug := genCmd.String("project", "", "Project slug to select directly (skip interactive menu)")
 
 	serveCmd := flag.NewFlagSet("serve", flag.ExitOnError)
-	servePort     := serveCmd.Int("port", 8080, "HTTP server port")
-	serveAPIKey   := serveCmd.String("api-key", "", "Anthropic API key (or set ANTHROPIC_API_KEY env var)")
+	servePort := serveCmd.Int("port", 8080, "HTTP server port")
+	serveAPIKey := serveCmd.String("api-key", "", "Clave Anthropic (ANTHROPIC_API_KEY); OpenAI y DeepSeek solo por variables de entorno")
 
 	if len(os.Args) < 2 {
 		printUsage()
@@ -46,7 +50,7 @@ func main() {
 	switch os.Args[1] {
 	case "generate":
 		genCmd.Parse(os.Args[2:])
-		runGenerate(*lang, *routes, *root, *output, *title, *apiKey, *docLang, *cacheFile, *forceRegen, *workers, *projectSlug)
+		runGenerate(*lang, *routes, *root, *output, *title, *apiKey, *aiProvider, *aiModel, *aiBaseURL, *docLang, *cacheFile, *forceRegen, *workers, *projectSlug)
 	case "serve":
 		serveCmd.Parse(os.Args[2:])
 		runServe(*servePort, *serveAPIKey)
@@ -59,27 +63,23 @@ func main() {
 	}
 }
 
-func runServe(port int, apiKey string) {
-	if apiKey == "" {
-		apiKey = os.Getenv("ANTHROPIC_API_KEY")
+func runServe(port int, anthropicAPIKeyFlag string) {
+	keys := server.APIKeys{
+		Anthropic: firstNonEmpty(anthropicAPIKeyFlag, os.Getenv("ANTHROPIC_API_KEY")),
+		OpenAI:    os.Getenv("OPENAI_API_KEY"),
+		DeepSeek:  os.Getenv("DEEPSEEK_API_KEY"),
 	}
-	if apiKey == "" {
-		fatal("API key required: use --api-key or set ANTHROPIC_API_KEY")
+	if keys.Anthropic == "" && keys.OpenAI == "" && keys.DeepSeek == "" {
+		fatal("se requiere al menos una clave: ANTHROPIC_API_KEY, OPENAI_API_KEY o DEEPSEEK_API_KEY (Anthropic también con --api-key)")
 	}
 	if err := server.EnsureDirs(); err != nil {
 		fatal("%v", err)
 	}
 	server.SetWebAssets(apidocgen.WebAssets)
-	server.Run(port, apiKey)
+	server.Run(port, keys)
 }
 
-func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile string, forceRegen bool, workers int, projectSlug string) {
-	if apiKey == "" {
-		apiKey = os.Getenv("ANTHROPIC_API_KEY")
-	}
-	if apiKey == "" {
-		fatal("API key required: use --api-key or set ANTHROPIC_API_KEY")
-	}
+func runGenerate(lang, routes, root, output, title, apiKey, aiProviderFlag, aiModelFlag, aiBaseURLFlag, docLang, cacheFile string, forceRegen bool, workers int, projectSlug string) {
 
 	reader := bufio.NewReader(os.Stdin)
 
@@ -107,6 +107,28 @@ func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile s
 		proj.DocLang = docLang
 	}
 
+	provStr := aiProviderFlag
+	if provStr == "" {
+		provStr = proj.AIProvider
+	}
+	prov, err := ai.ParseProvider(provStr)
+	if err != nil {
+		fatal("%v", err)
+	}
+	if apiKey == "" {
+		apiKey = apiKeyForProviderCLI(prov)
+	}
+	if apiKey == "" {
+		switch prov {
+		case ai.ProviderOpenAI:
+			fatal("clave OpenAI requerida: --api-key o OPENAI_API_KEY")
+		case ai.ProviderDeepSeek:
+			fatal("clave DeepSeek requerida: --api-key o DEEPSEEK_API_KEY")
+		default:
+			fatal("clave Anthropic requerida: --api-key o ANTHROPIC_API_KEY")
+		}
+	}
+
 	if proj.DocLang == "" {
 		fmt.Println("\n→ Idioma de la documentación:")
 		fmt.Println("  [1] English")
@@ -128,6 +150,9 @@ func runGenerate(lang, routes, root, output, title, apiKey, docLang, cacheFile s
 	result, err := server.RunGenerate(server.GenerateRequest{
 		Project:    *proj,
 		APIKey:     apiKey,
+		AIProvider: aiProviderFlag,
+		AIModel:    aiModelFlag,
+		AIBaseURL:  aiBaseURLFlag,
 		ForceRegen: forceRegen,
 		Workers:    workers,
 		DocLang:    proj.DocLang,
@@ -221,14 +246,24 @@ func createNewProject(reader *bufio.Reader, defaultLang, defaultRoutes, defaultR
 		docLangInput = defaultDocLang
 	}
 
+	aiProvInput := prompt(reader, "  Proveedor IA (anthropic / openai / deepseek)", "anthropic")
+	if _, err := ai.ParseProvider(aiProvInput); err != nil {
+		fatal("%v", err)
+	}
+	aiModelInput := prompt(reader, "  Modelo IA (opcional, vacío = default)", "")
+	aiBaseInput := prompt(reader, "  Base URL API OpenAI-compatible (opcional)", "")
+
 	proj := project.Project{
-		Name:    name,
-		Slug:    slug,
-		Lang:    langInput,
-		Routes:  routesInput,
-		Root:    rootInput,
-		Title:   titleInput,
-		DocLang: docLangInput,
+		Name:       name,
+		Slug:       slug,
+		Lang:       langInput,
+		Routes:     routesInput,
+		Root:       rootInput,
+		Title:      titleInput,
+		DocLang:    docLangInput,
+		AIProvider: strings.ToLower(strings.TrimSpace(aiProvInput)),
+		AIModel:    strings.TrimSpace(aiModelInput),
+		AIBaseURL:  strings.TrimSpace(aiBaseInput),
 	}
 
 	if err := project.Save(server.ProjectsDir, proj); err != nil {
@@ -268,16 +303,19 @@ FLAGS DE generate:
   --root      Directorio raíz del proyecto (default: .)
   --output    Archivo HTML de salida (default: docs/<slug>.html)
   --title     Título de la documentación (default: "API Documentation")
-  --api-key   Anthropic API key (o usar ANTHROPIC_API_KEY env var)
-  --doc-lang  Idioma de documentación: en (English) o es (Español)
-  --cache     Ruta al archivo de cache (default: cache/<slug>-cache.json)
-              Usar --cache=none para deshabilitar cache.
-  --force     Ignorar cache y re-documentar todos los endpoints con Claude.
-  --workers   Peticiones concurrentes a Claude API (default: 5)
+  --api-key       API key del proveedor activo (o ANTHROPIC_API_KEY / OPENAI_API_KEY / DEEPSEEK_API_KEY)
+  --ai-provider   anthropic, openai o deepseek (sustituye al del proyecto si se indica)
+  --ai-model      Modelo concreto (opcional)
+  --ai-base-url   Base URL para API compatible con OpenAI (opcional)
+  --doc-lang      Idioma de documentación: en (English) o es (Español)
+  --cache         Ruta al archivo de cache (default: cache/<slug>-cache.json)
+                  Usar --cache=none para deshabilitar cache.
+  --force         Ignorar cache y re-documentar todos los endpoints.
+  --workers       Peticiones concurrentes a la API de IA (default: 5)
 
 FLAGS DE serve:
   --port      Puerto del servidor HTTP (default: 8080)
-  --api-key   Anthropic API key (o usar ANTHROPIC_API_KEY env var)
+  --api-key   Clave Anthropic (alternativa a ANTHROPIC_API_KEY; OpenAI/DeepSeek vía env)
 
 EJEMPLOS:
   apidocgen generate
@@ -289,4 +327,22 @@ EJEMPLOS:
 func fatal(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "error: "+format+"\n", args...)
 	os.Exit(1)
+}
+
+func firstNonEmpty(a, b string) string {
+	if strings.TrimSpace(a) != "" {
+		return strings.TrimSpace(a)
+	}
+	return strings.TrimSpace(b)
+}
+
+func apiKeyForProviderCLI(p ai.Provider) string {
+	switch p {
+	case ai.ProviderOpenAI:
+		return os.Getenv("OPENAI_API_KEY")
+	case ai.ProviderDeepSeek:
+		return os.Getenv("DEEPSEEK_API_KEY")
+	default:
+		return os.Getenv("ANTHROPIC_API_KEY")
+	}
 }

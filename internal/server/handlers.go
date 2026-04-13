@@ -13,7 +13,7 @@ import (
 )
 
 type handlers struct {
-	apiKey string
+	keys APIKeys
 }
 
 func (h *handlers) listProjects(w http.ResponseWriter, r *http.Request) {
@@ -145,10 +145,16 @@ func (h *handlers) generateDocs(w http.ResponseWriter, r *http.Request) {
 		opts.Workers = 5
 	}
 
+	apiKey, err := apiKeyForProject(h.keys, *p)
+	if err != nil {
+		jsonError(w, http.StatusBadRequest, err.Error())
+		return
+	}
+
 	var logBuf bytes.Buffer
 	result, err := RunGenerate(GenerateRequest{
 		Project:    *p,
-		APIKey:     h.apiKey,
+		APIKey:     apiKey,
 		ForceRegen: opts.ForceRegen,
 		Workers:    opts.Workers,
 		DocLang:    p.DocLang,
@@ -178,8 +184,13 @@ func (h *handlers) checkDocs(w http.ResponseWriter, r *http.Request) {
 
 func (h *handlers) getSettings(w http.ResponseWriter, r *http.Request) {
 	jsonOK(w, map[string]any{
-		"parsers":  parser.Names(),
+		"parsers":   parser.Names(),
 		"doc_langs": []string{"en", "es"},
+		"ai_providers": []map[string]string{
+			{"id": "anthropic", "label": "Anthropic (Claude)"},
+			{"id": "openai", "label": "OpenAI"},
+			{"id": "deepseek", "label": "DeepSeek"},
+		},
 	})
 }
 

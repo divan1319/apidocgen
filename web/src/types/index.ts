@@ -6,6 +6,9 @@ export interface Project {
   root: string
   title: string
   doc_lang: string
+  ai_provider?: string
+  ai_model?: string
+  ai_base_url?: string
   has_docs?: boolean
 }
 
@@ -22,7 +25,13 @@ export interface GenerateResponse {
   log: string
 }
 
+export interface AIProviderOption {
+  id: string
+  label: string
+}
+
 export interface Settings {
   parsers: string[]
   doc_langs: string[]
+  ai_providers: AIProviderOption[]
 }

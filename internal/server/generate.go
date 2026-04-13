@@ -26,6 +26,9 @@ const (
 type GenerateRequest struct {
 	Project    project.Project
 	APIKey     string
+	AIProvider string
+	AIModel    string
+	AIBaseURL  string
 	ForceRegen bool
 	Workers    int
 	DocLang    string
@@ -62,6 +65,11 @@ func RunGenerate(req GenerateRequest, log io.Writer) (*GenerateResult, error) {
 	}
 	if docLang == "" {
 		docLang = "en"
+	}
+
+	aiCfg, err := resolveAIConfig(proj, req, docLang)
+	if err != nil {
+		return nil, err
 	}
 
 	output := req.Output
@@ -109,7 +117,7 @@ func RunGenerate(req GenerateRequest, log io.Writer) (*GenerateResult, error) {
 
 	var docCache *cache.Cache
 	if cacheFile != "" {
-		docCache, err = cache.Load(cacheFile)
+		docCache, err = cache.Load(cacheFile, aiCfg.CacheScope())
 		if err != nil {
 			return nil, fmt.Errorf("loading cache: %w", err)
 		}
@@ -141,8 +149,9 @@ func RunGenerate(req GenerateRequest, log io.Writer) (*GenerateResult, error) {
 		workers = 5
 	}
 
-	fmt.Fprintf(log, "→ Generando documentación con Claude (workers: %d)...\n", workers)
-	client, err := ai.New(req.APIKey, docLang)
+	fmt.Fprintf(log, "→ Generando documentación con %s / %s (workers: %d)...\n",
+		aiCfg.Provider, aiCfg.ResolvedModel(), workers)
+	client, err := ai.New(aiCfg)
 	if err != nil {
 		return nil, fmt.Errorf("initializing AI client: %w", err)
 	}
@@ -214,8 +223,34 @@ func RegenerateIndex(gen *generator.HTMLGenerator, log io.Writer) {
 	fmt.Fprintf(log, "→ Index actualizado: %s (%d proyecto(s))\n", indexPath, len(entries))
 }
 
+func resolveAIConfig(proj project.Project, req GenerateRequest, docLang string) (ai.Config, error) {
+	prov := req.AIProvider
+	if prov == "" {
+		prov = proj.AIProvider
+	}
+	p, err := ai.ParseProvider(prov)
+	if err != nil {
+		return ai.Config{}, err
+	}
+	model := req.AIModel
+	if model == "" {
+		model = proj.AIModel
+	}
+	base := req.AIBaseURL
+	if base == "" {
+		base = proj.AIBaseURL
+	}
+	return ai.Config{
+		Provider: p,
+		APIKey:   req.APIKey,
+		Model:    model,
+		BaseURL:  base,
+		DocLang:  docLang,
+	}, nil
+}
+
 func documentSection(
-	client *ai.Client,
+	client ai.Documenter,
 	docCache *cache.Cache,
 	section models.RouteSection,
 	workers int,
