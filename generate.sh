@@ -26,10 +26,38 @@ case "$MODE" in
     ./${OUTPUT_NAME} serve --port "${PORT}" --api-key "${ANTHROPIC_API_KEY}"
     ;;
   *)
+    echo ""
+    echo "Proveedor de IA para esta generación:"
+    echo "  [1] Anthropic — variable ANTHROPIC_API_KEY en .env"
+    echo "  [2] OpenAI — variable OPENAI_API_KEY en .env"
+    echo "  [3] DeepSeek — variable DEEPSEEK_API_KEY en .env"
+    read -rp "  Selecciona [1-3] (default: 1): " PROV_CHOICE
+    PROV_CHOICE="${PROV_CHOICE:-1}"
+    case "$PROV_CHOICE" in
+      2|openai|OpenAI)
+        AI_PROVIDER="openai"
+        API_KEY="${OPENAI_API_KEY}"
+        KEY_NAME="OPENAI_API_KEY"
+        ;;
+      3|deepseek|DeepSeek)
+        AI_PROVIDER="deepseek"
+        API_KEY="${DEEPSEEK_API_KEY}"
+        KEY_NAME="DEEPSEEK_API_KEY"
+        ;;
+      *)
+        AI_PROVIDER="anthropic"
+        API_KEY="${ANTHROPIC_API_KEY}"
+        KEY_NAME="ANTHROPIC_API_KEY"
+        ;;
+    esac
+    if [ -z "$API_KEY" ]; then
+      echo "error: ${KEY_NAME} no está definida o está vacía en .env" >&2
+      exit 1
+    fi
     if [ -n "$1" ]; then
-      ./${OUTPUT_NAME} generate --project "$1" --api-key "${ANTHROPIC_API_KEY}"
+      ./${OUTPUT_NAME} generate --project "$1" --api-key "${API_KEY}" --ai-provider "${AI_PROVIDER}"
     else
-      ./${OUTPUT_NAME} generate --api-key "${ANTHROPIC_API_KEY}"
+      ./${OUTPUT_NAME} generate --api-key "${API_KEY}" --ai-provider "${AI_PROVIDER}"
     fi
     ;;
 esac
