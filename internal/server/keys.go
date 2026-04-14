@@ -15,6 +15,8 @@ type APIKeys struct {
 	DeepSeek  string
 }
 
+// apiKeyForProject devuelve la clave según el proveedor guardado en el proyecto (ai_provider),
+// no según cómo se arrancó serve. El arranque solo rellena el conjunto de claves disponibles (env / flags).
 func apiKeyForProject(keys APIKeys, proj project.Project) (string, error) {
 	prov, err := ai.ParseProvider(proj.AIProvider)
 	if err != nil {

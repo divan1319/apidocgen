@@ -40,7 +40,8 @@ func main() {
 
 	serveCmd := flag.NewFlagSet("serve", flag.ExitOnError)
 	servePort := serveCmd.Int("port", 8080, "HTTP server port")
-	serveAPIKey := serveCmd.String("api-key", "", "Clave Anthropic (ANTHROPIC_API_KEY); OpenAI y DeepSeek solo por variables de entorno")
+	serveAPIKey := serveCmd.String("api-key", "", "Clave opcional para un solo proveedor (usar con --api-key-for; si no, usa solo variables de entorno)")
+	serveAPIKeyFor := serveCmd.String("api-key-for", "anthropic", "Proveedor al que aplica --api-key: anthropic, openai o deepseek")
 
 	if len(os.Args) < 2 {
 		printUsage()
@@ -53,7 +54,7 @@ func main() {
 		runGenerate(*lang, *routes, *root, *output, *title, *apiKey, *aiProvider, *aiModel, *aiBaseURL, *docLang, *cacheFile, *forceRegen, *workers, *projectSlug)
 	case "serve":
 		serveCmd.Parse(os.Args[2:])
-		runServe(*servePort, *serveAPIKey)
+		runServe(*servePort, *serveAPIKey, *serveAPIKeyFor)
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -63,14 +64,28 @@ func main() {
 	}
 }
 
-func runServe(port int, anthropicAPIKeyFlag string) {
+func runServe(port int, apiKeyFlag, apiKeyFor string) {
 	keys := server.APIKeys{
-		Anthropic: firstNonEmpty(anthropicAPIKeyFlag, os.Getenv("ANTHROPIC_API_KEY")),
-		OpenAI:    os.Getenv("OPENAI_API_KEY"),
-		DeepSeek:  os.Getenv("DEEPSEEK_API_KEY"),
+		Anthropic: strings.TrimSpace(os.Getenv("ANTHROPIC_API_KEY")),
+		OpenAI:    strings.TrimSpace(os.Getenv("OPENAI_API_KEY")),
+		DeepSeek:  strings.TrimSpace(os.Getenv("DEEPSEEK_API_KEY")),
+	}
+	if strings.TrimSpace(apiKeyFlag) != "" {
+		prov, err := ai.ParseProvider(apiKeyFor)
+		if err != nil {
+			fatal("%v", err)
+		}
+		switch prov {
+		case ai.ProviderAnthropic:
+			keys.Anthropic = strings.TrimSpace(apiKeyFlag)
+		case ai.ProviderOpenAI:
+			keys.OpenAI = strings.TrimSpace(apiKeyFlag)
+		case ai.ProviderDeepSeek:
+			keys.DeepSeek = strings.TrimSpace(apiKeyFlag)
+		}
 	}
 	if keys.Anthropic == "" && keys.OpenAI == "" && keys.DeepSeek == "" {
-		fatal("se requiere al menos una clave: ANTHROPIC_API_KEY, OPENAI_API_KEY o DEEPSEEK_API_KEY (Anthropic también con --api-key)")
+		fatal("se requiere al menos una clave en el entorno o con --api-key: ANTHROPIC_API_KEY, OPENAI_API_KEY y/o DEEPSEEK_API_KEY (opcional --api-key-for si usas --api-key)")
 	}
 	if err := server.EnsureDirs(); err != nil {
 		fatal("%v", err)
@@ -314,8 +329,11 @@ FLAGS DE generate:
   --workers       Peticiones concurrentes a la API de IA (default: 5)
 
 FLAGS DE serve:
-  --port      Puerto del servidor HTTP (default: 8080)
-  --api-key   Clave Anthropic (alternativa a ANTHROPIC_API_KEY; OpenAI/DeepSeek vía env)
+  --port          Puerto del servidor HTTP (default: 8080)
+  --api-key       Opcional: una clave que no esté en el entorno
+  --api-key-for   Proveedor de --api-key (default: anthropic). Al generar, cada proyecto
+                  usa la clave según su ai_provider (no según este flag).
+                  Claves por defecto: ANTHROPIC_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY
 
 EJEMPLOS:
   apidocgen generate
@@ -327,13 +345,6 @@ EJEMPLOS:
 func fatal(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "error: "+format+"\n", args...)
 	os.Exit(1)
-}
-
-func firstNonEmpty(a, b string) string {
-	if strings.TrimSpace(a) != "" {
-		return strings.TrimSpace(a)
-	}
-	return strings.TrimSpace(b)
 }
 
 func apiKeyForProviderCLI(p ai.Provider) string {

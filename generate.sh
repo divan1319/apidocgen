@@ -23,7 +23,9 @@ case "$MODE" in
     PORT=${2:-${PORT}}
     echo ""
     echo "Iniciando servidor en http://localhost:${PORT} ..."
-    ./${OUTPUT_NAME} serve --port "${PORT}" --api-key "${ANTHROPIC_API_KEY}"
+    echo "  (Las claves se leen del entorno: ANTHROPIC_API_KEY, OPENAI_API_KEY, DEEPSEEK_API_KEY.)"
+    echo "  Cada proyecto usa la clave del proveedor que tenga configurado en el panel."
+    ./${OUTPUT_NAME} serve --port "${PORT}"
     ;;
   *)
     echo ""

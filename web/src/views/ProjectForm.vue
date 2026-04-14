@@ -42,6 +42,18 @@ watch(() => form.value.name, (name) => {
   }
 })
 
+/** Al generar, la clave la elige el backend según este proveedor (campo del proyecto), no “el proveedor al arrancar”. */
+const aiProviderEnvHint = computed(() => {
+  const p = form.value.ai_provider || 'anthropic'
+  if (p === 'openai') {
+    return 'Al pulsar Generar se usará OPENAI_API_KEY del proceso serve. Las otras claves del .env no se mezclan con este proyecto.'
+  }
+  if (p === 'deepseek') {
+    return 'Al pulsar Generar se usará DEEPSEEK_API_KEY del proceso serve.'
+  }
+  return 'Al pulsar Generar se usará ANTHROPIC_API_KEY del proceso serve (o --api-key solo si arrancaste serve con --api-key-for anthropic).'
+})
+
 async function loadData() {
   loading.value = true
   try {
@@ -195,8 +207,8 @@ onMounted(loadData)
           <option v-if="!settings.ai_providers.length" value="openai">OpenAI</option>
           <option v-if="!settings.ai_providers.length" value="deepseek">DeepSeek</option>
         </select>
-        <p class="text-text-muted text-[10px] mt-1">
-          En modo serve, configura ANTHROPIC_API_KEY, OPENAI_API_KEY o DEEPSEEK_API_KEY según el proveedor.
+        <p class="text-text-muted text-[10px] mt-1 leading-relaxed">
+          {{ aiProviderEnvHint }}
         </p>
       </div>
 
