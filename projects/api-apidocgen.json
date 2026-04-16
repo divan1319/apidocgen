@@ -1,0 +1,10 @@
+{
+  "name": "API APIDOCGEN",
+  "slug": "api-apidocgen",
+  "lang": "gohttp",
+  "routes": "./internal/server",
+  "root": "/opt/GoProjects/github.com/divan1319/apidocgen",
+  "title": "Documentacion APIDOCGEN",
+  "doc_lang": "es",
+  "ai_provider": "anthropic"
+}

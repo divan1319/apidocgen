@@ -1,0 +1,681 @@
+{
+  "version": 2,
+  "entries": {
+    "anthropic:claude-sonnet-4-6|ALL:/": {
+      "doc": {
+        "Endpoint": {
+          "Method": "ALL",
+          "URI": "/",
+          "Name": "",
+          "Controller": "mux",
+          "Action": "spaHandler",
+          "Middleware": null,
+          "RawSource": "mux.Handle(\"/\", spaHandler",
+          "StaticMeta": {
+            "RequestParams": null,
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "go"
+        },
+        "Summary": "Manejador principal de la aplicación de página única (SPA)",
+        "Description": "Este endpoint actúa como el punto de entrada principal para una aplicación de página única (SPA). Responde a todos los métodos HTTP (GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD) en la ruta raíz '/'. El manejador spaHandler se encarga de servir los archivos estáticos de la SPA y redirigir todas las rutas no reconocidas al archivo index.html, permitiendo que el enrutamiento del lado del cliente tome el control. Este patrón es común en aplicaciones construidas con frameworks como React, Vue o Angular.",
+        "Parameters": [
+          {
+            "Name": "path",
+            "Type": "string",
+            "Required": false,
+            "Rules": "optional, any path segment",
+            "Description": "Cualquier segmento de ruta adicional será manejado por el enrutador del lado del cliente de la SPA. No se requieren parámetros específicos para este endpoint."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 200,
+            "Description": "Respuesta exitosa. Devuelve el archivo estático solicitado o el archivo index.html de la SPA para que el enrutador del cliente gestione la navegación.",
+            "Body": "\u003c!DOCTYPE html\u003e\u003chtml lang=\"en\"\u003e\u003chead\u003e\u003cmeta charset=\"UTF-8\"\u003e\u003ctitle\u003eSPA App\u003c/title\u003e\u003c/head\u003e\u003cbody\u003e\u003cdiv id=\"root\"\u003e\u003c/div\u003e\u003c/body\u003e\u003c/html\u003e"
+          },
+          {
+            "Code": 301,
+            "Description": "Redirección permanente. Puede ocurrir si se accede a la ruta sin el slash final u otras redirecciones canónicas.",
+            "Body": "\u003ca href=\"/\"\u003eMoved Permanently\u003c/a\u003e"
+          },
+          {
+            "Code": 304,
+            "Description": "No modificado. El archivo estático solicitado no ha cambiado desde la última solicitud, se utilizan los recursos en caché del cliente.",
+            "Body": ""
+          },
+          {
+            "Code": 404,
+            "Description": "No encontrado. En algunas configuraciones de spaHandler, si el archivo estático no existe y no hay fallback a index.html configurado, se devuelve este código.",
+            "Body": "404 page not found"
+          },
+          {
+            "Code": 500,
+            "Description": "Error interno del servidor. Ocurre si el spaHandler no puede leer o servir los archivos estáticos requeridos.",
+            "Body": "500 Internal Server Error"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Accept-Language": "es-ES,es;q=0.9,en;q=0.8",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive"
+          },
+          "Body": ""
+        }
+      },
+      "source_hash": "40b3d969c1bf3ae4"
+    },
+    "anthropic:claude-sonnet-4-6|ALL:/docs/": {
+      "doc": {
+        "Endpoint": {
+          "Method": "ALL",
+          "URI": "/docs/",
+          "Name": "",
+          "Controller": "mux",
+          "Action": "http.StripPrefix",
+          "Middleware": null,
+          "RawSource": "mux.Handle(\"/docs/\", http.StripPrefix",
+          "StaticMeta": {
+            "RequestParams": null,
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "go"
+        },
+        "Summary": "Sirve la documentación estática de la API desde el directorio /docs/",
+        "Description": "Este endpoint sirve archivos estáticos de documentación accesibles bajo la ruta /docs/. Utiliza el middleware http.StripPrefix de Go para eliminar el prefijo /docs/ de la ruta antes de buscar el archivo en el sistema de archivos o servidor de archivos configurado. Acepta todos los métodos HTTP estándar (GET, HEAD, etc.), aunque en la práctica solo GET y HEAD son relevantes para servir contenido estático. No requiere autenticación en la mayoría de configuraciones. El comportamiento exacto depende del file server configurado detrás del StripPrefix.",
+        "Parameters": [
+          {
+            "Name": "path",
+            "Type": "string",
+            "Required": false,
+            "Rules": "any valid URL path segment",
+            "Description": "Ruta relativa al recurso de documentación deseado dentro del directorio /docs/. Por ejemplo, /docs/index.html accedería al archivo index.html. Si se omite, generalmente se sirve el archivo index por defecto."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 200,
+            "Description": "El archivo solicitado fue encontrado y se retorna correctamente. El Content-Type varía según la extensión del archivo (text/html, application/json, text/css, etc.).",
+            "Body": "\"\u003ccontenido del archivo estático solicitado\u003e\""
+          },
+          {
+            "Code": 301,
+            "Description": "Redirección permanente, generalmente ocurre cuando se accede a un directorio sin barra final.",
+            "Body": "{\"Location\": \"/docs/\"}"
+          },
+          {
+            "Code": 404,
+            "Description": "El archivo o recurso solicitado no fue encontrado en el directorio de documentación.",
+            "Body": "\"404 page not found\""
+          },
+          {
+            "Code": 403,
+            "Description": "Acceso prohibido al recurso solicitado, por ejemplo al intentar listar un directorio sin archivo index.",
+            "Body": "\"403 Forbidden\""
+          },
+          {
+            "Code": 405,
+            "Description": "Método HTTP no permitido. Solo GET y HEAD son soportados para archivos estáticos.",
+            "Body": "\"405 Method Not Allowed\""
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"
+          },
+          "Body": ""
+        }
+      },
+      "source_hash": "27b94c1a082f125f"
+    },
+    "anthropic:claude-sonnet-4-6|DELETE:/api/projects/{slug}": {
+      "doc": {
+        "Endpoint": {
+          "Method": "DELETE",
+          "URI": "/api/projects/{slug}",
+          "Name": "",
+          "Controller": "mux",
+          "Action": "h.deleteProject",
+          "Middleware": null,
+          "RawSource": "mux.HandleFunc(\"DELETE /api/projects/{slug}\", h.deleteProject",
+          "StaticMeta": {
+            "RequestParams": [
+              {
+                "Name": "slug",
+                "Type": "string",
+                "Required": true,
+                "Rules": "route"
+              }
+            ],
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "go"
+        },
+        "Summary": "Eliminar un proyecto por su slug",
+        "Description": "Elimina permanentemente un proyecto identificado por su slug único. Esta operación es irreversible y puede tener efectos secundarios como la eliminación en cascada de recursos asociados al proyecto (tareas, miembros, archivos, etc.). Se requiere que el usuario autenticado tenga los permisos necesarios para eliminar el proyecto.",
+        "Parameters": [
+          {
+            "Name": "slug",
+            "Type": "string",
+            "Required": true,
+            "Rules": "route parameter",
+            "Description": "Identificador único del proyecto en formato slug (cadena de texto amigable con URL). Se pasa directamente en la ruta del endpoint."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 200,
+            "Description": "El proyecto fue eliminado exitosamente.",
+            "Body": "{\"message\": \"Project deleted successfully\"}"
+          },
+          {
+            "Code": 204,
+            "Description": "El proyecto fue eliminado exitosamente, sin contenido en la respuesta.",
+            "Body": ""
+          },
+          {
+            "Code": 401,
+            "Description": "El usuario no está autenticado. Se requiere un token de autorización válido.",
+            "Body": "{\"error\": \"Unauthorized\"}"
+          },
+          {
+            "Code": 403,
+            "Description": "El usuario autenticado no tiene permisos suficientes para eliminar este proyecto.",
+            "Body": "{\"error\": \"Forbidden\"}"
+          },
+          {
+            "Code": 404,
+            "Description": "No se encontró ningún proyecto con el slug proporcionado.",
+            "Body": "{\"error\": \"Project not found\"}"
+          },
+          {
+            "Code": 500,
+            "Description": "Error interno del servidor al intentar eliminar el proyecto.",
+            "Body": "{\"error\": \"Internal server error\"}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}"
+          },
+          "Body": ""
+        }
+      },
+      "source_hash": "0349c618eb944150"
+    },
+    "anthropic:claude-sonnet-4-6|GET:/api/docs/{slug}": {
+      "doc": {
+        "Endpoint": {
+          "Method": "GET",
+          "URI": "/api/docs/{slug}",
+          "Name": "",
+          "Controller": "mux",
+          "Action": "h.checkDocs",
+          "Middleware": null,
+          "RawSource": "mux.HandleFunc(\"GET /api/docs/{slug}\", h.checkDocs",
+          "StaticMeta": {
+            "RequestParams": [
+              {
+                "Name": "slug",
+                "Type": "string",
+                "Required": true,
+                "Rules": "route"
+              }
+            ],
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "go"
+        },
+        "Summary": "Obtiene la documentación correspondiente a un identificador único (slug)",
+        "Description": "Este endpoint recupera el contenido de un documento o página de documentación identificado por su slug único en la URL. El slug actúa como identificador legible que permite acceder a una entrada específica dentro del sistema de documentación. Si el documento existe, devuelve su contenido; en caso contrario, retorna un error indicando que el recurso no fue encontrado.",
+        "Parameters": [
+          {
+            "Name": "slug",
+            "Type": "string",
+            "Required": true,
+            "Rules": "route parameter, non-empty string",
+            "Description": "Identificador único legible del documento de documentación a consultar. Se pasa directamente en la ruta de la URL."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 200,
+            "Description": "El documento fue encontrado y se retorna su contenido correctamente.",
+            "Body": "{\"slug\": \"getting-started\", \"title\": \"Getting Started\", \"content\": \"...\", \"created_at\": \"2024-01-01T00:00:00Z\", \"updated_at\": \"2024-01-01T00:00:00Z\"}"
+          },
+          {
+            "Code": 404,
+            "Description": "No existe ningún documento asociado al slug proporcionado.",
+            "Body": "{\"error\": \"document not found\", \"slug\": \"non-existent-slug\"}"
+          },
+          {
+            "Code": 400,
+            "Description": "El slug proporcionado tiene un formato inválido o está vacío.",
+            "Body": "{\"error\": \"invalid slug parameter\"}"
+          },
+          {
+            "Code": 500,
+            "Description": "Error interno del servidor al intentar recuperar el documento.",
+            "Body": "{\"error\": \"internal server error\"}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}"
+          },
+          "Body": ""
+        }
+      },
+      "source_hash": "379d21c555b8f27b"
+    },
+    "anthropic:claude-sonnet-4-6|GET:/api/projects": {
+      "doc": {
+        "Endpoint": {
+          "Method": "GET",
+          "URI": "/api/projects",
+          "Name": "",
+          "Controller": "mux",
+          "Action": "h.listProjects",
+          "Middleware": null,
+          "RawSource": "mux.HandleFunc(\"GET /api/projects\", h.listProjects",
+          "StaticMeta": {
+            "RequestParams": null,
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "go"
+        },
+        "Summary": "Obtiene la lista de todos los proyectos disponibles",
+        "Description": "Este endpoint retorna una colección de todos los proyectos registrados en el sistema. Realiza una consulta general sin filtros obligatorios, devolviendo todos los registros accesibles. Puede ser utilizado para poblar listados, selectores o paneles de administración. Dependiendo de la implementación, puede incluir paginación o retornar todos los proyectos en una sola respuesta.",
+        "Parameters": null,
+        "Responses": [
+          {
+            "Code": 200,
+            "Description": "Lista de proyectos obtenida exitosamente",
+            "Body": "{\"data\": [{\"id\": 1, \"name\": \"Proyecto Ejemplo\", \"description\": \"Descripción del proyecto\", \"created_at\": \"2024-01-15T10:00:00Z\", \"updated_at\": \"2024-01-15T10:00:00Z\"}], \"total\": 1}"
+          },
+          {
+            "Code": 401,
+            "Description": "No autorizado. El token de autenticación es inválido o no fue proporcionado",
+            "Body": "{\"error\": \"Unauthorized\", \"message\": \"Token de autenticación inválido o ausente\"}"
+          },
+          {
+            "Code": 403,
+            "Description": "Prohibido. El usuario autenticado no tiene permisos para listar proyectos",
+            "Body": "{\"error\": \"Forbidden\", \"message\": \"No tienes permisos para acceder a este recurso\"}"
+          },
+          {
+            "Code": 500,
+            "Description": "Error interno del servidor al intentar recuperar los proyectos",
+            "Body": "{\"error\": \"Internal Server Error\", \"message\": \"Ocurrió un error inesperado al procesar la solicitud\"}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}",
+            "Content-Type": "application/json"
+          },
+          "Body": ""
+        }
+      },
+      "source_hash": "2a15aeef9a4f0f13"
+    },
+    "anthropic:claude-sonnet-4-6|GET:/api/projects/{slug}": {
+      "doc": {
+        "Endpoint": {
+          "Method": "GET",
+          "URI": "/api/projects/{slug}",
+          "Name": "",
+          "Controller": "mux",
+          "Action": "h.getProject",
+          "Middleware": null,
+          "RawSource": "mux.HandleFunc(\"GET /api/projects/{slug}\", h.getProject",
+          "StaticMeta": {
+            "RequestParams": [
+              {
+                "Name": "slug",
+                "Type": "string",
+                "Required": true,
+                "Rules": "route"
+              }
+            ],
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "go"
+        },
+        "Summary": "Obtiene los detalles de un proyecto específico por su slug",
+        "Description": "Recupera la información completa de un proyecto identificado de forma única por su slug en la URL. El slug es un identificador legible que representa al proyecto. Si el proyecto no existe, se retorna un error 404. Este endpoint es de solo lectura y no modifica ningún recurso.",
+        "Parameters": [
+          {
+            "Name": "slug",
+            "Type": "string",
+            "Required": true,
+            "Rules": "route parameter, non-empty string",
+            "Description": "Identificador único legible del proyecto (slug) incluido en la ruta de la URL. Se utiliza para localizar el proyecto en el sistema."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 200,
+            "Description": "El proyecto fue encontrado y se retorna su información completa.",
+            "Body": "{\"id\": 1, \"slug\": \"mi-proyecto\", \"name\": \"Mi Proyecto\", \"description\": \"Descripción del proyecto\", \"created_at\": \"2024-01-01T00:00:00Z\", \"updated_at\": \"2024-01-01T00:00:00Z\"}"
+          },
+          {
+            "Code": 404,
+            "Description": "No se encontró ningún proyecto con el slug proporcionado.",
+            "Body": "{\"error\": \"project not found\"}"
+          },
+          {
+            "Code": 500,
+            "Description": "Error interno del servidor al intentar recuperar el proyecto.",
+            "Body": "{\"error\": \"internal server error\"}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}"
+          },
+          "Body": ""
+        }
+      },
+      "source_hash": "498a30bee88abce9"
+    },
+    "anthropic:claude-sonnet-4-6|GET:/api/settings": {
+      "doc": {
+        "Endpoint": {
+          "Method": "GET",
+          "URI": "/api/settings",
+          "Name": "",
+          "Controller": "mux",
+          "Action": "h.getSettings",
+          "Middleware": null,
+          "RawSource": "mux.HandleFunc(\"GET /api/settings\", h.getSettings",
+          "StaticMeta": {
+            "RequestParams": null,
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "go"
+        },
+        "Summary": "Obtiene la configuración general de la aplicación",
+        "Description": "Retorna los ajustes de configuración del sistema. Este endpoint permite al cliente recuperar los parámetros de configuración de la aplicación. No requiere cuerpo en la solicitud.",
+        "Parameters": null,
+        "Responses": [
+          {
+            "Code": 200,
+            "Description": "Configuración obtenida exitosamente",
+            "Body": "{\"settings\": {\"key\": \"value\"}}"
+          },
+          {
+            "Code": 500,
+            "Description": "Error interno del servidor al obtener la configuración",
+            "Body": "{\"error\": \"Internal server error\"}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json"
+          },
+          "Body": ""
+        }
+      },
+      "source_hash": "39324744079c4856"
+    },
+    "anthropic:claude-sonnet-4-6|POST:/api/projects": {
+      "doc": {
+        "Endpoint": {
+          "Method": "POST",
+          "URI": "/api/projects",
+          "Name": "",
+          "Controller": "mux",
+          "Action": "h.createProject",
+          "Middleware": null,
+          "RawSource": "mux.HandleFunc(\"POST /api/projects\", h.createProject",
+          "StaticMeta": {
+            "RequestParams": null,
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "go"
+        },
+        "Summary": "Crear un nuevo proyecto",
+        "Description": "Este endpoint permite crear un nuevo proyecto en el sistema. Se espera que el cliente envíe los datos del proyecto en el cuerpo de la solicitud en formato JSON. Al completarse exitosamente, el servidor retorna el proyecto recién creado con su identificador único asignado. El endpoint está registrado en un multiplexor HTTP estándar de Go.",
+        "Parameters": [
+          {
+            "Name": "name",
+            "Type": "string",
+            "Required": true,
+            "Rules": "required|string|max:255",
+            "Description": "Nombre del proyecto a crear"
+          },
+          {
+            "Name": "description",
+            "Type": "string",
+            "Required": false,
+            "Rules": "nullable|string",
+            "Description": "Descripción detallada del proyecto"
+          },
+          {
+            "Name": "status",
+            "Type": "string",
+            "Required": false,
+            "Rules": "nullable|string|in:active,inactive,draft",
+            "Description": "Estado inicial del proyecto. Valores permitidos: active, inactive, draft"
+          },
+          {
+            "Name": "owner_id",
+            "Type": "integer",
+            "Required": false,
+            "Rules": "nullable|integer",
+            "Description": "Identificador del usuario propietario del proyecto"
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 201,
+            "Description": "Proyecto creado exitosamente. Retorna el objeto del proyecto con su identificador único asignado.",
+            "Body": "{\"id\": 1, \"name\": \"Mi Proyecto\", \"description\": \"Descripción del proyecto\", \"status\": \"active\", \"owner_id\": 42, \"created_at\": \"2024-01-15T10:30:00Z\", \"updated_at\": \"2024-01-15T10:30:00Z\"}"
+          },
+          {
+            "Code": 400,
+            "Description": "Solicitud inválida. El cuerpo de la solicitud contiene datos malformados o campos requeridos faltantes.",
+            "Body": "{\"error\": \"bad request\", \"message\": \"invalid request body\"}"
+          },
+          {
+            "Code": 422,
+            "Description": "Error de validación. Uno o más campos no cumplen con las reglas de validación establecidas.",
+            "Body": "{\"error\": \"unprocessable entity\", \"message\": \"validation failed\", \"details\": {\"name\": \"field is required\"}}"
+          },
+          {
+            "Code": 500,
+            "Description": "Error interno del servidor. Ocurrió un problema inesperado al intentar crear el proyecto.",
+            "Body": "{\"error\": \"internal server error\", \"message\": \"an unexpected error occurred\"}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}",
+            "Content-Type": "application/json"
+          },
+          "Body": "{\"name\": \"Mi Nuevo Proyecto\", \"description\": \"Este es un proyecto de ejemplo\", \"status\": \"active\", \"owner_id\": 42}"
+        }
+      },
+      "source_hash": "62aca1c1b8c4f479"
+    },
+    "anthropic:claude-sonnet-4-6|POST:/api/projects/{slug}/generate": {
+      "doc": {
+        "Endpoint": {
+          "Method": "POST",
+          "URI": "/api/projects/{slug}/generate",
+          "Name": "",
+          "Controller": "mux",
+          "Action": "h.generateDocs",
+          "Middleware": null,
+          "RawSource": "mux.HandleFunc(\"POST /api/projects/{slug}/generate\", h.generateDocs",
+          "StaticMeta": {
+            "RequestParams": [
+              {
+                "Name": "slug",
+                "Type": "string",
+                "Required": true,
+                "Rules": "route"
+              }
+            ],
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "go"
+        },
+        "Summary": "Genera documentación automática para un proyecto específico",
+        "Description": "Este endpoint dispara el proceso de generación automática de documentación para el proyecto identificado por su slug. Al recibir la solicitud, el sistema localiza el proyecto correspondiente y ejecuta el motor de generación de documentación, procesando el código fuente o configuración del proyecto para producir documentación actualizada. Es una operación asíncrona o sincrónica que puede implicar análisis de código, extracción de comentarios, esquemas o anotaciones definidas en el proyecto.",
+        "Parameters": [
+          {
+            "Name": "slug",
+            "Type": "string",
+            "Required": true,
+            "Rules": "route param, non-empty string",
+            "Description": "Identificador único del proyecto en formato slug (ej: 'mi-proyecto-api'). Se pasa directamente en la URL como parámetro de ruta."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 200,
+            "Description": "La documentación fue generada exitosamente para el proyecto indicado.",
+            "Body": "{\"message\": \"Documentation generated successfully\", \"slug\": \"my-project\", \"generated_at\": \"2024-01-15T10:30:00Z\"}"
+          },
+          {
+            "Code": 404,
+            "Description": "El proyecto con el slug proporcionado no fue encontrado.",
+            "Body": "{\"error\": \"Project not found\", \"slug\": \"non-existent-project\"}"
+          },
+          {
+            "Code": 422,
+            "Description": "El slug proporcionado tiene un formato inválido o el proyecto no puede ser procesado.",
+            "Body": "{\"error\": \"Invalid slug format or project cannot be processed\"}"
+          },
+          {
+            "Code": 500,
+            "Description": "Error interno durante el proceso de generación de documentación.",
+            "Body": "{\"error\": \"Failed to generate documentation\", \"details\": \"Internal server error\"}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}",
+            "Content-Type": "application/json"
+          },
+          "Body": "{}"
+        }
+      },
+      "source_hash": "fac2477aef6b31a7"
+    },
+    "anthropic:claude-sonnet-4-6|PUT:/api/projects/{slug}": {
+      "doc": {
+        "Endpoint": {
+          "Method": "PUT",
+          "URI": "/api/projects/{slug}",
+          "Name": "",
+          "Controller": "mux",
+          "Action": "h.updateProject",
+          "Middleware": null,
+          "RawSource": "mux.HandleFunc(\"PUT /api/projects/{slug}\", h.updateProject",
+          "StaticMeta": {
+            "RequestParams": [
+              {
+                "Name": "slug",
+                "Type": "string",
+                "Required": true,
+                "Rules": "route"
+              }
+            ],
+            "ResponseCodes": null,
+            "Description": ""
+          },
+          "Language": "go"
+        },
+        "Summary": "Actualizar un proyecto existente identificado por su slug",
+        "Description": "Actualiza los datos de un proyecto existente utilizando su slug como identificador único en la ruta. El endpoint recibe los nuevos valores para los campos del proyecto y los persiste en el sistema. Si el slug no corresponde a ningún proyecto existente, se retorna un error 404. En caso de éxito, retorna los datos actualizados del proyecto.",
+        "Parameters": [
+          {
+            "Name": "slug",
+            "Type": "string",
+            "Required": true,
+            "Rules": "route parameter, must match existing project slug",
+            "Description": "Identificador único del proyecto en formato slug (ej: 'mi-proyecto'). Se pasa directamente en la URL como parte de la ruta."
+          },
+          {
+            "Name": "name",
+            "Type": "string",
+            "Required": false,
+            "Rules": "optional|string|max:255",
+            "Description": "Nombre actualizado del proyecto."
+          },
+          {
+            "Name": "description",
+            "Type": "string",
+            "Required": false,
+            "Rules": "optional|string",
+            "Description": "Descripción actualizada del proyecto."
+          },
+          {
+            "Name": "status",
+            "Type": "string",
+            "Required": false,
+            "Rules": "optional|string|in:active,inactive,archived",
+            "Description": "Estado actualizado del proyecto. Valores posibles: active, inactive, archived."
+          }
+        ],
+        "Responses": [
+          {
+            "Code": 200,
+            "Description": "El proyecto fue actualizado exitosamente. Retorna los datos completos del proyecto actualizado.",
+            "Body": "{\"id\": 1, \"slug\": \"mi-proyecto\", \"name\": \"Mi Proyecto Actualizado\", \"description\": \"Descripción actualizada del proyecto\", \"status\": \"active\", \"updated_at\": \"2024-01-15T10:30:00Z\", \"created_at\": \"2024-01-01T08:00:00Z\"}"
+          },
+          {
+            "Code": 400,
+            "Description": "La solicitud contiene datos inválidos o mal formados. Retorna detalles sobre los errores de validación.",
+            "Body": "{\"error\": \"bad_request\", \"message\": \"Los datos proporcionados no son válidos\", \"details\": {\"name\": \"El campo name no puede estar vacío si se proporciona\"}}"
+          },
+          {
+            "Code": 404,
+            "Description": "No se encontró ningún proyecto con el slug proporcionado.",
+            "Body": "{\"error\": \"not_found\", \"message\": \"El proyecto con slug 'mi-proyecto' no existe\"}"
+          },
+          {
+            "Code": 422,
+            "Description": "Error de validación semántica en los datos enviados.",
+            "Body": "{\"error\": \"unprocessable_entity\", \"message\": \"No se pudo procesar la entidad\", \"details\": {\"status\": \"El valor proporcionado no es un estado válido\"}}"
+          },
+          {
+            "Code": 500,
+            "Description": "Error interno del servidor al intentar actualizar el proyecto.",
+            "Body": "{\"error\": \"internal_server_error\", \"message\": \"Ocurrió un error inesperado al procesar la solicitud\"}"
+          }
+        ],
+        "Example": {
+          "Headers": {
+            "Accept": "application/json",
+            "Authorization": "Bearer {token}",
+            "Content-Type": "application/json"
+          },
+          "Body": "{\"name\": \"Mi Proyecto Actualizado\", \"description\": \"Nueva descripción del proyecto\", \"status\": \"active\"}"
+        }
+      },
+      "source_hash": "8b874a807da80c96"
+    }
+  }
+}

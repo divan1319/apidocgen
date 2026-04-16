@@ -1,12 +1,12 @@
 # apidocgen
 
-Herramienta en Go que analiza las rutas de tu proyecto (Laravel, .NET, Python, Node.js, etc.), envía los endpoints a la API de **Anthropic (Claude)** y genera documentación HTML lista para abrir en el navegador.
+Herramienta en Go que analiza las rutas de tu proyecto (Laravel, .NET, Python, Node.js, Go, etc.), envía los endpoints a la API de **Anthropic (Claude)** y genera documentación HTML lista para abrir en el navegador.
 
 Incluye dos modos de uso: una **CLI interactiva** para generar documentación desde la terminal, y un **servidor web** con panel de administración para gestionar múltiples proyectos desde el navegador.
 
 ## Características
 
-- Parsers para **Laravel**, **.NET**, **FastAPI**, **Flask**, **Express**, **Fastify** y **Node.js HTTP nativo**.
+- Parsers para **Laravel**, **.NET**, **FastAPI**, **Flask**, **Express**, **Fastify**, **Node.js HTTP nativo**, **Go net/http**, **Gorilla Mux**, **Fiber** y **Echo**.
 - Soporte **multi-proyecto**: cada proyecto se guarda como un archivo JSON en `projects/` con su propia configuración.
 - **Caché por proyecto** en `cache/` para no repetir llamadas a la API.
 - Documentación generada en **inglés** o **español**.
@@ -174,7 +174,7 @@ La forma más sencilla de usar la herramienta. Carga `.env` y muestra un menú:
 | Flag         | Descripción                                            |
 | ------------ | ------------------------------------------------------ |
 | `--project`  | Slug del proyecto (salta el menú interactivo).         |
-| `--lang`     | Framework: `laravel`, `dotnet`, `fastapi`, `flask`, `express`, `fastify`, `nodehttp` (default: `laravel`). |
+| `--lang`     | Framework: `laravel`, `dotnet`, `fastapi`, `flask`, `express`, `fastify`, `nodehttp`, `gohttp`, `gomux`, `fiber`, `echo` (default: `laravel`). |
 | `--routes`   | Archivos de rutas separados por coma.                  |
 | `--root`     | Directorio raíz del proyecto a documentar.             |
 | `--output`   | Ruta del HTML de salida (default: `docs/<slug>.html`). |
@@ -209,7 +209,8 @@ apidocgen/
 │   │   ├── laravel/
 │   │   ├── dotnet/
 │   │   ├── python/              # FastAPI y Flask
-│   │   └── node/                # Express, Fastify y Node HTTP nativo
+│   │   ├── node/                # Express, Fastify y Node HTTP nativo
+│   │   └── golang/              # Go net/http, Gorilla Mux, Fiber y Echo
 │   ├── project/                 # CRUD de proyectos (JSON)
 │   └── server/                  # Servidor HTTP + API REST + motor de generación
 ├── pkg/models/                  # Modelos compartidos
@@ -266,6 +267,10 @@ Los HTML generados se sirven en `/docs/<slug>.html`.
 - **Express** — `--lang express`
 - **Fastify** — `--lang fastify`
 - **Node.js HTTP nativo** — `--lang nodehttp`
+- **Go net/http** — `--lang gohttp`
+- **Gorilla Mux** — `--lang gomux`
+- **Fiber** — `--lang fiber`
+- **Echo** — `--lang echo`
 
 Se pueden agregar nuevos parsers implementando la interfaz `Parser` y registrándolos en `internal/parser/`.
 
@@ -736,6 +741,253 @@ const server = http.createServer((req, res) => {
     --title "API HTTP Nativa"
 ```
 
+### Go net/http (`--lang gohttp`)
+
+Parser para servidores HTTP usando la librería estándar de Go. Detecta `HandleFunc`, `Handle` y los patrones de Go 1.22+ con método explícito.
+
+**Carpeta del servidor:**
+
+```
+routes: cmd/server/
+root:   /home/user/mi-api-go
+lang:   gohttp
+```
+
+**Archivo específico:**
+
+```
+routes: internal/routes/routes.go
+root:   /home/user/mi-api-go
+lang:   gohttp
+```
+
+#### Patrones que detecta
+
+**HandleFunc y Handle (pre-1.22):**
+
+```go
+http.HandleFunc("/api/users", handleUsers)
+mux.Handle("/api/static", staticHandler)
+// Sin método explícito → se registra como ALL
+```
+
+**Patrones Go 1.22+ con método explícito:**
+
+```go
+mux := http.NewServeMux()
+mux.HandleFunc("GET /api/users", listUsers)
+mux.HandleFunc("POST /api/users", createUser)
+mux.HandleFunc("GET /api/users/{id}", getUser)
+mux.HandleFunc("PUT /api/users/{id}", updateUser)
+mux.HandleFunc("DELETE /api/users/{id}", deleteUser)
+```
+
+**Wildcards:**
+
+```go
+mux.HandleFunc("GET /files/{path...}", serveFile)
+```
+
+#### Ejemplo CLI
+
+```bash
+./apidocgen generate \
+    --lang gohttp \
+    --routes cmd/server/ \
+    --root /home/user/mi-api-go \
+    --title "Mi API Go"
+```
+
+### Gorilla Mux (`--lang gomux`)
+
+Parser para aplicaciones con [Gorilla Mux](https://github.com/gorilla/mux). Detecta `HandleFunc`/`Handle` con `.Methods()`, `.Name()`, `PathPrefix().Subrouter()` con prefijos anidados.
+
+**Carpeta de rutas:**
+
+```
+routes: internal/routes/
+root:   /home/user/mi-api-gorilla
+lang:   gomux
+```
+
+#### Patrones que detecta
+
+**CRUD con Methods:**
+
+```go
+r := mux.NewRouter()
+r.HandleFunc("/api/users", listUsers).Methods("GET")
+r.HandleFunc("/api/users", createUser).Methods("POST")
+r.HandleFunc("/api/users/{id}", getUser).Methods("GET")
+r.HandleFunc("/api/users/{id}", updateUser).Methods("PUT")
+r.HandleFunc("/api/users/{id}", deleteUser).Methods("DELETE")
+```
+
+**Múltiples métodos en una ruta:**
+
+```go
+r.HandleFunc("/api/users/{id}", userHandler).Methods("GET", "PUT")
+// Genera 2 endpoints: GET y PUT
+```
+
+**Named routes:**
+
+```go
+r.HandleFunc("/api/users", listUsers).Methods("GET").Name("listUsers")
+```
+
+**Subrouters con PathPrefix:**
+
+```go
+r := mux.NewRouter()
+api := r.PathPrefix("/api").Subrouter()
+v1 := api.PathPrefix("/v1").Subrouter()
+v1.HandleFunc("/users", listUsers).Methods("GET")
+// Resultado: GET /api/v1/users
+```
+
+#### Ejemplo CLI
+
+```bash
+./apidocgen generate \
+    --lang gomux \
+    --routes internal/routes/ \
+    --root /home/user/mi-api-gorilla \
+    --title "API Gorilla Mux"
+```
+
+### Fiber (`--lang fiber`)
+
+Parser para aplicaciones [GoFiber](https://gofiber.io/). Detecta métodos HTTP (`Get`, `Post`, etc.), `Group()` con prefijos anidados y middleware como argumentos.
+
+**Carpeta del servidor:**
+
+```
+routes: cmd/api/
+root:   /home/user/mi-api-fiber
+lang:   fiber
+```
+
+#### Patrones que detecta
+
+**CRUD básico:**
+
+```go
+app := fiber.New()
+app.Get("/api/users", listUsers)
+app.Post("/api/users", createUser)
+app.Get("/api/users/:id", getUser)
+app.Put("/api/users/:id", updateUser)
+app.Delete("/api/users/:id", deleteUser)
+```
+
+**Groups anidados:**
+
+```go
+app := fiber.New()
+api := app.Group("/api")
+v1 := api.Group("/v1")
+v1.Get("/users", listUsers)
+// Resultado: GET /api/v1/users
+```
+
+**Middleware:**
+
+```go
+app.Get("/api/admin", authMiddleware, getAdmin)
+app.Post("/api/admin/action", authMiddleware, roleMiddleware, doAction)
+// Detecta middleware: [authMiddleware] y [authMiddleware, roleMiddleware]
+```
+
+**All (todos los métodos):**
+
+```go
+app.All("/api/cors", corsHandler)
+```
+
+#### Ejemplo CLI
+
+```bash
+./apidocgen generate \
+    --lang fiber \
+    --routes cmd/api/ \
+    --root /home/user/mi-api-fiber \
+    --title "API Fiber"
+```
+
+### Echo (`--lang echo`)
+
+Parser para aplicaciones [Echo](https://echo.labstack.com/). Detecta métodos HTTP (`GET`, `POST`, etc.), `Any`, `Group()` con prefijos anidados y middleware (que en Echo va después del handler).
+
+**Carpeta de rutas:**
+
+```
+routes: internal/server/
+root:   /home/user/mi-api-echo
+lang:   echo
+```
+
+#### Patrones que detecta
+
+**CRUD básico:**
+
+```go
+e := echo.New()
+e.GET("/api/users", listUsers)
+e.POST("/api/users", createUser)
+e.GET("/api/users/:id", getUser)
+e.PUT("/api/users/:id", updateUser)
+e.DELETE("/api/users/:id", deleteUser)
+```
+
+**Groups anidados:**
+
+```go
+e := echo.New()
+api := e.Group("/api")
+v1 := api.Group("/v1")
+v1.GET("/users", listUsers)
+// Resultado: GET /api/v1/users
+```
+
+**Middleware (después del handler):**
+
+```go
+e.GET("/api/admin", getAdmin, authMiddleware)
+e.POST("/api/admin/action", doAction, authMiddleware, roleMiddleware)
+// Detecta middleware: [authMiddleware] y [authMiddleware, roleMiddleware]
+```
+
+**Any (todos los métodos):**
+
+```go
+e.Any("/api/cors", corsHandler)
+```
+
+**Estilo controller:**
+
+```go
+e.GET("/api/users", controllers.ListUsers)
+e.POST("/api/users", controllers.CreateUser)
+```
+
+#### Ejemplo CLI
+
+```bash
+./apidocgen generate \
+    --lang echo \
+    --routes internal/server/ \
+    --root /home/user/mi-api-echo \
+    --title "API Echo"
+```
+
+#### Notas comunes (Go: net/http, Gorilla Mux, Fiber, Echo)
+
+- Se procesan archivos `.go` (se excluyen `_test.go`).
+- Se extraen automáticamente los **parámetros de ruta** en estilo `{id}`, `{path...}` (net/http, Mux) y `:id` (Fiber, Echo).
+- Se omiten automáticamente carpetas `vendor`, `.git` y `testdata`.
+- Los comentarios (`//` y `/* */`) se eliminan antes del análisis.
+
 #### Notas comunes (Express, Fastify, Node HTTP)
 
 - Se procesan archivos `.js`, `.ts`, `.mjs`, `.mts`, `.cjs` y `.cts`.
@@ -747,7 +999,7 @@ const server = http.createServer((req, res) => {
 ### Notas generales
 
 - Las rutas son **relativas al root** del proyecto. No necesitas poner la ruta absoluta completa.
-- Si pones una **carpeta** (.NET, Python, Express, Fastify o Node HTTP), el parser escanea recursivamente los archivos correspondientes (`.cs` o `.py` según el lenguaje).
+- Si pones una **carpeta** (.NET, Python, Express, Fastify, Node HTTP o Go), el parser escanea recursivamente los archivos correspondientes (`.cs`, `.py`, `.js`/`.ts` o `.go` según el lenguaje).
 - Puedes separar **múltiples archivos o carpetas** con coma: `routes/api.php,routes/admin.php`.
 - Cada archivo procesado genera una **sección** independiente en la documentación final.
 

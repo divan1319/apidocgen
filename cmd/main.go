@@ -15,6 +15,7 @@ import (
 	"github.com/divan1319/apidocgen/internal/server"
 
 	_ "github.com/divan1319/apidocgen/internal/parser/dotnet"
+	_ "github.com/divan1319/apidocgen/internal/parser/golang"
 	_ "github.com/divan1319/apidocgen/internal/parser/laravel"
 	_ "github.com/divan1319/apidocgen/internal/parser/node"
 	_ "github.com/divan1319/apidocgen/internal/parser/python"

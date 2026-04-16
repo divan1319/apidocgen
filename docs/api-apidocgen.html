@@ -1,0 +1,1301 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Documentacion APIDOCGEN</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500;1,400&family=Syne:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #111118;
+    --surface-2: #1a1a24;
+    --border: #2a2a3a;
+    --text: #e8e8f0;
+    --text-muted: #6b6b80;
+    --accent: #7c6af7;
+    --accent-dim: rgba(124,106,247,0.12);
+    --get:    #22d3a5; --get-bg: rgba(34,211,165,0.08);
+    --post:   #f97316; --post-bg:rgba(249,115,22,0.08);
+    --put:    #eab308; --put-bg: rgba(234,179,8,0.08);
+    --delete: #f43f5e; --del-bg: rgba(244,63,94,0.08);
+    --success:#22d3a5; --warn:#f97316; --danger:#f43f5e;
+    --radius: 8px;
+    --mono: 'DM Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    display: grid;
+    grid-template-columns: 280px 1fr;
+    min-height: 100vh;
+  }
+
+   
+  .menu-toggle {
+    display: none;
+    position: fixed; top: 14px; left: 14px; z-index: 200;
+    background: var(--surface-2); border: 1px solid var(--border);
+    color: var(--text); border-radius: var(--radius);
+    width: 40px; height: 40px;
+    align-items: center; justify-content: center;
+    cursor: pointer; font-size: 18px;
+  }
+  .nav-overlay {
+    display: none;
+    position: fixed; inset: 0; z-index: 150;
+    background: rgba(0,0,0,.55);
+  }
+  .nav-overlay.open { display: block; }
+
+   
+  nav {
+    position: sticky; top: 0; height: 100vh;
+    overflow-y: auto;
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    display: flex; flex-direction: column; gap: 2px;
+  }
+  .nav-header {
+    font-size: 13px; font-weight: 700; letter-spacing: .06em;
+    color: var(--text); padding: 0 20px 20px;
+    border-bottom: 1px solid var(--border); margin-bottom: 8px;
+  }
+  .nav-header span { color: var(--accent); }
+
+   
+  .nav-section {
+    margin-bottom: 4px;
+  }
+  .nav-section-header {
+    display: flex; align-items: center; gap: 8px;
+    padding: 8px 20px;
+    cursor: pointer;
+    user-select: none;
+    color: var(--text);
+    font-size: 12px; font-weight: 700;
+    letter-spacing: .08em; text-transform: uppercase;
+    transition: color .15s;
+  }
+  .nav-section-header:hover { color: var(--accent); }
+  .nav-section-header .version-tag {
+    font-size: 9px; padding: 1px 5px;
+    background: var(--accent-dim); color: var(--accent);
+    border-radius: 3px; font-family: var(--mono);
+  }
+  .nav-section-header .chevron {
+    margin-left: auto; transition: transform .2s;
+    color: var(--text-muted); font-size: 10px;
+  }
+  .nav-section.collapsed .chevron { transform: rotate(-90deg); }
+  .nav-section-items { overflow: hidden; }
+  .nav-section.collapsed .nav-section-items { display: none; }
+
+  .nav-item {
+    display: flex; align-items: center; gap: 8px;
+    padding: 6px 20px 6px 28px;
+    text-decoration: none; color: var(--text-muted);
+    font-size: 12px; font-family: var(--mono);
+    transition: color .15s, background .15s;
+    border-left: 2px solid transparent;
+    cursor: pointer;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface-2); border-left-color: var(--accent); }
+  .nav-item.active { color: var(--text); border-left-color: var(--accent); background: var(--accent-dim); }
+  .nav-badge {
+    font-size: 9px; font-weight: 500; padding: 1px 5px;
+    border-radius: 3px; flex-shrink: 0;
+  }
+  .nav-uri { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+   
+  main { padding: 48px 64px; min-width: 0; }
+
+  .page-header {
+    display: flex; align-items: flex-end; gap: 32px;
+    margin-bottom: 32px;
+  }
+  .page-header-text { flex: 1; }
+  .page-header h1 {
+    font-size: 40px; font-weight: 800; letter-spacing: -.02em;
+    background: linear-gradient(135deg, var(--text) 0%, var(--accent) 100%);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    background-clip: text; margin-bottom: 6px;
+  }
+  .page-header p { color: var(--text-muted); font-size: 14px; }
+
+   
+  .search-bar {
+    position: sticky; top: 0; z-index: 10;
+    background: var(--bg);
+    border-bottom: 1px solid var(--border);
+    padding: 14px 0 16px;
+    margin-bottom: 28px;
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  }
+  .search-input-wrap {
+    flex: 1; min-width: 180px;
+    display: flex; align-items: center; gap: 10px;
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: var(--radius); padding: 0 14px;
+    transition: border-color .15s;
+  }
+  .search-input-wrap:focus-within { border-color: var(--accent); }
+  .search-icon { color: var(--text-muted); font-size: 14px; flex-shrink: 0; }
+  .search-input {
+    flex: 1; background: transparent; border: none; outline: none;
+    color: var(--text); font-family: var(--mono); font-size: 13px;
+    padding: 10px 0;
+  }
+  .search-input::placeholder { color: var(--text-muted); }
+  .search-clear {
+    background: none; border: none; color: var(--text-muted);
+    cursor: pointer; font-size: 16px; padding: 0; line-height: 1;
+    display: none;
+  }
+  .search-clear.visible { display: block; }
+  .search-clear:hover { color: var(--text); }
+  .method-filters { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mf-btn {
+    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    padding: 5px 10px; border-radius: 5px; letter-spacing: .06em;
+    cursor: pointer; border: 1px solid transparent;
+    transition: opacity .15s, border-color .15s;
+    opacity: .45;
+  }
+  .mf-btn.active { opacity: 1; border-color: currentColor; }
+  .mf-btn.mf-all { color: var(--text); background: var(--surface-2); border-color: var(--border); opacity: 1; }
+  .mf-btn.mf-all.active { border-color: var(--accent); color: var(--accent); }
+  .mf-btn.mf-get  { color: var(--get);    background: var(--get-bg); }
+  .mf-btn.mf-post { color: var(--post);   background: var(--post-bg); }
+  .mf-btn.mf-put  { color: var(--put);    background: var(--put-bg); }
+  .mf-btn.mf-del  { color: var(--delete); background: var(--del-bg); }
+  .no-results {
+    display: none; text-align: center; padding: 48px 0;
+    color: var(--text-muted); font-size: 14px;
+  }
+  .no-results.visible { display: block; }
+
+   
+  .section-page { display: none; }
+  .section-page.active { display: block; }
+
+  .section-title-bar {
+    display: flex; align-items: center; gap: 12px;
+    margin-bottom: 32px; padding-bottom: 20px;
+    border-bottom: 1px solid var(--border);
+  }
+  .section-title-bar h2 { font-size: 24px; font-weight: 700; }
+  .section-version {
+    font-family: var(--mono); font-size: 11px;
+    padding: 3px 8px; border-radius: 5px;
+    background: var(--accent-dim); color: var(--accent);
+  }
+  .section-count { color: var(--text-muted); font-size: 13px; margin-left: auto; }
+
+   
+  .endpoint {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; margin-bottom: 16px; overflow: hidden;
+    transition: border-color .2s;
+  }
+  .endpoint:hover { border-color: var(--accent); }
+  .endpoint-header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 16px 20px; cursor: pointer; user-select: none;
+  }
+  .method-badge {
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    padding: 3px 8px; border-radius: 5px; letter-spacing: .06em; flex-shrink: 0;
+  }
+  .method-get    { color: var(--get);    background: var(--get-bg); }
+  .method-post   { color: var(--post);   background: var(--post-bg);}
+  .method-put    { color: var(--put);    background: var(--put-bg); }
+  .method-delete { color: var(--delete); background: var(--del-bg); }
+  .endpoint-uri  { font-family: var(--mono); font-size: 14px; color: var(--text); flex: 1; }
+  .endpoint-summary { color: var(--text-muted); font-size: 12px; text-align: right; }
+  .endpoint-body { border-top: 1px solid var(--border); padding: 20px; display: none; }
+  .endpoint.open .endpoint-body { display: block; }
+  .endpoint-description { color: var(--text-muted); font-size: 13px; line-height: 1.7; margin-bottom: 24px; }
+
+   
+  .section { margin-bottom: 24px; }
+  .section-label {
+    font-size: 10px; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--accent); margin-bottom: 10px;
+  }
+  .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 480px; }
+  th {
+    text-align: left; padding: 7px 10px; color: var(--text-muted);
+    font-weight: 500; font-size: 10px; letter-spacing: .08em;
+    text-transform: uppercase; border-bottom: 1px solid var(--border);
+  }
+  td { padding: 9px 10px; border-bottom: 1px solid var(--border); vertical-align: top; line-height: 1.5; }
+  tr:last-child td { border-bottom: none; }
+  .param-name { font-family: var(--mono); color: var(--text); }
+  .param-type { font-family: var(--mono); color: var(--accent); font-size: 11px; }
+  .param-desc { color: var(--text-muted); }
+  .badge-required { background: rgba(244,63,94,.12); color: var(--danger); font-size: 10px; padding: 2px 5px; border-radius: 3px; }
+  .badge-optional { background: var(--surface-2); color: var(--text-muted); font-size: 10px; padding: 2px 5px; border-radius: 3px; }
+  .response-item { background: var(--surface-2); border: 1px solid var(--border); border-radius: var(--radius); margin-bottom: 8px; overflow: hidden; }
+  .response-header { display: flex; align-items: center; gap: 10px; padding: 9px 14px; }
+  .status-badge { font-family: var(--mono); font-size: 13px; font-weight: 500; }
+  .status-success { color: var(--success); }
+  .status-client-error { color: var(--warn); }
+  .status-server-error { color: var(--danger); }
+  .response-desc { color: var(--text-muted); font-size: 13px; }
+  pre { background: #070710; border: 1px solid var(--border); border-radius: var(--radius); padding: 14px; overflow-x: auto; font-family: var(--mono); font-size: 12px; line-height: 1.7; color: #a5b4fc; }
+  .mw-tags { display: flex; gap: 6px; flex-wrap: wrap; }
+  .mw-tag { background: var(--accent-dim); color: var(--accent); font-family: var(--mono); font-size: 10px; padding: 2px 7px; border-radius: 4px; }
+  ::-webkit-scrollbar { width: 5px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+   
+  @media (max-width: 1024px) {
+    body { grid-template-columns: 240px 1fr; }
+    main { padding: 40px 32px; }
+  }
+
+  @media (max-width: 768px) {
+    body { grid-template-columns: 1fr; }
+    .menu-toggle { display: flex; }
+    nav {
+      position: fixed; top: 0; left: 0; z-index: 160;
+      width: 280px; height: 100vh;
+      transform: translateX(-100%);
+      transition: transform .25s ease;
+    }
+    nav.open { transform: translateX(0); }
+    .nav-header { padding-left: 60px; }
+    main { padding: 64px 20px 40px; }
+    .page-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+    .page-header h1 { font-size: 28px; }
+    .search-bar { flex-direction: column; align-items: stretch; gap: 10px; }
+    .method-filters { justify-content: flex-start; }
+    .endpoint-header { flex-wrap: wrap; gap: 8px; }
+    .endpoint-summary { text-align: left; width: 100%; }
+    .section-title-bar { flex-wrap: wrap; gap: 8px; }
+    .section-count { margin-left: 0; }
+  }
+
+  @media (max-width: 480px) {
+    main { padding: 56px 12px 32px; }
+    .page-header h1 { font-size: 22px; }
+    .endpoint-uri { font-size: 12px; }
+    pre { font-size: 11px; padding: 10px; }
+  }
+</style>
+</head>
+<body>
+
+<button class="menu-toggle" onclick="toggleNav()" aria-label="Toggle menu">☰</button>
+<div class="nav-overlay" id="nav-overlay" onclick="closeNav()"></div>
+
+<nav id="sidebar">
+  <div class="nav-header">Documentacion APIDOCGEN</div>
+
+  
+    
+  <div class="nav-section" id="nav-sec-server">
+    <div class="nav-section-header" onclick="toggleNavSection('nav-sec-server')">
+      <span>Server</span>
+      
+      <span class="chevron">▼</span>
+    </div>
+    <div class="nav-section-items">
+      
+      <div class="nav-item" onclick="showEndpoint('server-get-api-projects', 'sec-server')">
+        <span class="nav-badge method-badge method-get">GET</span>
+        <span class="nav-uri">/api/projects</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('server-get-api-projects-slug', 'sec-server')">
+        <span class="nav-badge method-badge method-get">GET</span>
+        <span class="nav-uri">/api/projects/{slug}</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('server-post-api-projects', 'sec-server')">
+        <span class="nav-badge method-badge method-post">POST</span>
+        <span class="nav-uri">/api/projects</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('server-put-api-projects-slug', 'sec-server')">
+        <span class="nav-badge method-badge method-put">PUT</span>
+        <span class="nav-uri">/api/projects/{slug}</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('server-delete-api-projects-slug', 'sec-server')">
+        <span class="nav-badge method-badge method-delete">DELETE</span>
+        <span class="nav-uri">/api/projects/{slug}</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('server-post-api-projects-slug-generate', 'sec-server')">
+        <span class="nav-badge method-badge method-post">POST</span>
+        <span class="nav-uri">/api/projects/{slug}/generate</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('server-get-api-docs-slug', 'sec-server')">
+        <span class="nav-badge method-badge method-get">GET</span>
+        <span class="nav-uri">/api/docs/{slug}</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('server-get-api-settings', 'sec-server')">
+        <span class="nav-badge method-badge method-get">GET</span>
+        <span class="nav-uri">/api/settings</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('server-all-docs', 'sec-server')">
+        <span class="nav-badge method-badge method-default">ALL</span>
+        <span class="nav-uri">/docs/</span>
+      </div>
+      
+      <div class="nav-item" onclick="showEndpoint('server-all-', 'sec-server')">
+        <span class="nav-badge method-badge method-default">ALL</span>
+        <span class="nav-uri">/</span>
+      </div>
+      
+    </div>
+  </div>
+  
+</nav>
+
+<main>
+  <div class="page-header">
+    <div class="page-header-text">
+      <h1>Documentacion APIDOCGEN</h1>
+      <p>
+        1 section(s) ·
+        10 + 0 endpoints · Generated by apidocgen
+      </p>
+    </div>
+  </div>
+
+  <div class="search-bar">
+    <div class="search-input-wrap">
+      <span class="search-icon">⌕</span>
+      <input class="search-input" id="search-input" type="search" placeholder="Buscar endpoint…" oninput="filterEndpoints()" autocomplete="off">
+      <button class="search-clear" id="search-clear" onclick="clearSearch()">×</button>
+    </div>
+    <div class="method-filters">
+      <button class="mf-btn mf-all active" data-method="ALL" onclick="setMethodFilter(this)">ALL</button>
+      <button class="mf-btn mf-get"  data-method="GET"    onclick="setMethodFilter(this)">GET</button>
+      <button class="mf-btn mf-post" data-method="POST"   onclick="setMethodFilter(this)">POST</button>
+      <button class="mf-btn mf-put"  data-method="PUT"    onclick="setMethodFilter(this)">PUT</button>
+      <button class="mf-btn mf-del"  data-method="DELETE" onclick="setMethodFilter(this)">DELETE</button>
+    </div>
+  </div>
+
+  
+    
+  <div class="section-page" id="sec-server">
+    <div class="section-title-bar">
+      <h2>Server</h2>
+      
+      <span class="section-count">10 endpoints</span>
+    </div>
+
+    
+    <div class="endpoint" id="server-get-api-projects">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-uri">/api/projects</span>
+        <span class="endpoint-summary">Obtiene la lista de todos los proyectos disponibles</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Este endpoint retorna una colección de todos los proyectos registrados en el sistema. Realiza una consulta general sin filtros obligatorios, devolviendo todos los registros accesibles. Puede ser utilizado para poblar listados, selectores o paneles de administración. Dependiendo de la implementación, puede incluir paginación o retornar todos los proyectos en una sola respuesta.</p>
+
+        
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">Lista de proyectos obtenida exitosamente</span>
+            </div>
+            <pre>{&#34;data&#34;: [{&#34;id&#34;: 1, &#34;name&#34;: &#34;Proyecto Ejemplo&#34;, &#34;description&#34;: &#34;Descripción del proyecto&#34;, &#34;created_at&#34;: &#34;2024-01-15T10:00:00Z&#34;, &#34;updated_at&#34;: &#34;2024-01-15T10:00:00Z&#34;}], &#34;total&#34;: 1}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">401</span>
+              <span class="response-desc">No autorizado. El token de autenticación es inválido o no fue proporcionado</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;Unauthorized&#34;, &#34;message&#34;: &#34;Token de autenticación inválido o ausente&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">403</span>
+              <span class="response-desc">Prohibido. El usuario autenticado no tiene permisos para listar proyectos</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;Forbidden&#34;, &#34;message&#34;: &#34;No tienes permisos para acceder a este recurso&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor al intentar recuperar los proyectos</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;Internal Server Error&#34;, &#34;message&#34;: &#34;Ocurrió un error inesperado al procesar la solicitud&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="server-get-api-projects-slug">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-uri">/api/projects/{slug}</span>
+        <span class="endpoint-summary">Obtiene los detalles de un proyecto específico por su slug</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Recupera la información completa de un proyecto identificado de forma única por su slug en la URL. El slug es un identificador legible que representa al proyecto. Si el proyecto no existe, se retorna un error 404. Este endpoint es de solo lectura y no modifica ningún recurso.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">slug</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único legible del proyecto (slug) incluido en la ruta de la URL. Se utiliza para localizar el proyecto en el sistema.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">El proyecto fue encontrado y se retorna su información completa.</span>
+            </div>
+            <pre>{&#34;id&#34;: 1, &#34;slug&#34;: &#34;mi-proyecto&#34;, &#34;name&#34;: &#34;Mi Proyecto&#34;, &#34;description&#34;: &#34;Descripción del proyecto&#34;, &#34;created_at&#34;: &#34;2024-01-01T00:00:00Z&#34;, &#34;updated_at&#34;: &#34;2024-01-01T00:00:00Z&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">No se encontró ningún proyecto con el slug proporcionado.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;project not found&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor al intentar recuperar el proyecto.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;internal server error&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="server-post-api-projects">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-uri">/api/projects</span>
+        <span class="endpoint-summary">Crear un nuevo proyecto</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Este endpoint permite crear un nuevo proyecto en el sistema. Se espera que el cliente envíe los datos del proyecto en el cuerpo de la solicitud en formato JSON. Al completarse exitosamente, el servidor retorna el proyecto recién creado con su identificador único asignado. El endpoint está registrado en un multiplexor HTTP estándar de Go.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">name</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Nombre del proyecto a crear</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">description</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Descripción detallada del proyecto</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">status</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Estado inicial del proyecto. Valores permitidos: active, inactive, draft</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">owner_id</td>
+                <td class="param-type">integer</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Identificador del usuario propietario del proyecto</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">201</span>
+              <span class="response-desc">Proyecto creado exitosamente. Retorna el objeto del proyecto con su identificador único asignado.</span>
+            </div>
+            <pre>{&#34;id&#34;: 1, &#34;name&#34;: &#34;Mi Proyecto&#34;, &#34;description&#34;: &#34;Descripción del proyecto&#34;, &#34;status&#34;: &#34;active&#34;, &#34;owner_id&#34;: 42, &#34;created_at&#34;: &#34;2024-01-15T10:30:00Z&#34;, &#34;updated_at&#34;: &#34;2024-01-15T10:30:00Z&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">400</span>
+              <span class="response-desc">Solicitud inválida. El cuerpo de la solicitud contiene datos malformados o campos requeridos faltantes.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;bad request&#34;, &#34;message&#34;: &#34;invalid request body&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">422</span>
+              <span class="response-desc">Error de validación. Uno o más campos no cumplen con las reglas de validación establecidas.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;unprocessable entity&#34;, &#34;message&#34;: &#34;validation failed&#34;, &#34;details&#34;: {&#34;name&#34;: &#34;field is required&#34;}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor. Ocurrió un problema inesperado al intentar crear el proyecto.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;internal server error&#34;, &#34;message&#34;: &#34;an unexpected error occurred&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Request Example</div>
+          <pre>{&#34;name&#34;: &#34;Mi Nuevo Proyecto&#34;, &#34;description&#34;: &#34;Este es un proyecto de ejemplo&#34;, &#34;status&#34;: &#34;active&#34;, &#34;owner_id&#34;: 42}</pre>
+        </div>
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="server-put-api-projects-slug">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-put">PUT</span>
+        <span class="endpoint-uri">/api/projects/{slug}</span>
+        <span class="endpoint-summary">Actualizar un proyecto existente identificado por su slug</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Actualiza los datos de un proyecto existente utilizando su slug como identificador único en la ruta. El endpoint recibe los nuevos valores para los campos del proyecto y los persiste en el sistema. Si el slug no corresponde a ningún proyecto existente, se retorna un error 404. En caso de éxito, retorna los datos actualizados del proyecto.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">slug</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único del proyecto en formato slug (ej: &#39;mi-proyecto&#39;). Se pasa directamente en la URL como parte de la ruta.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">name</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Nombre actualizado del proyecto.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">description</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Descripción actualizada del proyecto.</td>
+              </tr>
+              
+              <tr>
+                <td class="param-name">status</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Estado actualizado del proyecto. Valores posibles: active, inactive, archived.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">El proyecto fue actualizado exitosamente. Retorna los datos completos del proyecto actualizado.</span>
+            </div>
+            <pre>{&#34;id&#34;: 1, &#34;slug&#34;: &#34;mi-proyecto&#34;, &#34;name&#34;: &#34;Mi Proyecto Actualizado&#34;, &#34;description&#34;: &#34;Descripción actualizada del proyecto&#34;, &#34;status&#34;: &#34;active&#34;, &#34;updated_at&#34;: &#34;2024-01-15T10:30:00Z&#34;, &#34;created_at&#34;: &#34;2024-01-01T08:00:00Z&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">400</span>
+              <span class="response-desc">La solicitud contiene datos inválidos o mal formados. Retorna detalles sobre los errores de validación.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;bad_request&#34;, &#34;message&#34;: &#34;Los datos proporcionados no son válidos&#34;, &#34;details&#34;: {&#34;name&#34;: &#34;El campo name no puede estar vacío si se proporciona&#34;}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">No se encontró ningún proyecto con el slug proporcionado.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;not_found&#34;, &#34;message&#34;: &#34;El proyecto con slug &#39;mi-proyecto&#39; no existe&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">422</span>
+              <span class="response-desc">Error de validación semántica en los datos enviados.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;unprocessable_entity&#34;, &#34;message&#34;: &#34;No se pudo procesar la entidad&#34;, &#34;details&#34;: {&#34;status&#34;: &#34;El valor proporcionado no es un estado válido&#34;}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor al intentar actualizar el proyecto.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;internal_server_error&#34;, &#34;message&#34;: &#34;Ocurrió un error inesperado al procesar la solicitud&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Request Example</div>
+          <pre>{&#34;name&#34;: &#34;Mi Proyecto Actualizado&#34;, &#34;description&#34;: &#34;Nueva descripción del proyecto&#34;, &#34;status&#34;: &#34;active&#34;}</pre>
+        </div>
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="server-delete-api-projects-slug">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-delete">DELETE</span>
+        <span class="endpoint-uri">/api/projects/{slug}</span>
+        <span class="endpoint-summary">Eliminar un proyecto por su slug</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Elimina permanentemente un proyecto identificado por su slug único. Esta operación es irreversible y puede tener efectos secundarios como la eliminación en cascada de recursos asociados al proyecto (tareas, miembros, archivos, etc.). Se requiere que el usuario autenticado tenga los permisos necesarios para eliminar el proyecto.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">slug</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único del proyecto en formato slug (cadena de texto amigable con URL). Se pasa directamente en la ruta del endpoint.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">El proyecto fue eliminado exitosamente.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;Project deleted successfully&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">204</span>
+              <span class="response-desc">El proyecto fue eliminado exitosamente, sin contenido en la respuesta.</span>
+            </div>
+            
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">401</span>
+              <span class="response-desc">El usuario no está autenticado. Se requiere un token de autorización válido.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;Unauthorized&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">403</span>
+              <span class="response-desc">El usuario autenticado no tiene permisos suficientes para eliminar este proyecto.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;Forbidden&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">No se encontró ningún proyecto con el slug proporcionado.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;Project not found&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor al intentar eliminar el proyecto.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;Internal server error&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="server-post-api-projects-slug-generate">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-post">POST</span>
+        <span class="endpoint-uri">/api/projects/{slug}/generate</span>
+        <span class="endpoint-summary">Genera documentación automática para un proyecto específico</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Este endpoint dispara el proceso de generación automática de documentación para el proyecto identificado por su slug. Al recibir la solicitud, el sistema localiza el proyecto correspondiente y ejecuta el motor de generación de documentación, procesando el código fuente o configuración del proyecto para producir documentación actualizada. Es una operación asíncrona o sincrónica que puede implicar análisis de código, extracción de comentarios, esquemas o anotaciones definidas en el proyecto.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">slug</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único del proyecto en formato slug (ej: &#39;mi-proyecto-api&#39;). Se pasa directamente en la URL como parámetro de ruta.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">La documentación fue generada exitosamente para el proyecto indicado.</span>
+            </div>
+            <pre>{&#34;message&#34;: &#34;Documentation generated successfully&#34;, &#34;slug&#34;: &#34;my-project&#34;, &#34;generated_at&#34;: &#34;2024-01-15T10:30:00Z&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">El proyecto con el slug proporcionado no fue encontrado.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;Project not found&#34;, &#34;slug&#34;: &#34;non-existent-project&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">422</span>
+              <span class="response-desc">El slug proporcionado tiene un formato inválido o el proyecto no puede ser procesado.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;Invalid slug format or project cannot be processed&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno durante el proceso de generación de documentación.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;Failed to generate documentation&#34;, &#34;details&#34;: &#34;Internal server error&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Request Example</div>
+          <pre>{}</pre>
+        </div>
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="server-get-api-docs-slug">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-uri">/api/docs/{slug}</span>
+        <span class="endpoint-summary">Obtiene la documentación correspondiente a un identificador único (slug)</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Este endpoint recupera el contenido de un documento o página de documentación identificado por su slug único en la URL. El slug actúa como identificador legible que permite acceder a una entrada específica dentro del sistema de documentación. Si el documento existe, devuelve su contenido; en caso contrario, retorna un error indicando que el recurso no fue encontrado.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">slug</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-required">required</span></td>
+                <td class="param-desc">Identificador único legible del documento de documentación a consultar. Se pasa directamente en la ruta de la URL.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">El documento fue encontrado y se retorna su contenido correctamente.</span>
+            </div>
+            <pre>{&#34;slug&#34;: &#34;getting-started&#34;, &#34;title&#34;: &#34;Getting Started&#34;, &#34;content&#34;: &#34;...&#34;, &#34;created_at&#34;: &#34;2024-01-01T00:00:00Z&#34;, &#34;updated_at&#34;: &#34;2024-01-01T00:00:00Z&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">No existe ningún documento asociado al slug proporcionado.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;document not found&#34;, &#34;slug&#34;: &#34;non-existent-slug&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">400</span>
+              <span class="response-desc">El slug proporcionado tiene un formato inválido o está vacío.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;invalid slug parameter&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor al intentar recuperar el documento.</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;internal server error&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="server-get-api-settings">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-get">GET</span>
+        <span class="endpoint-uri">/api/settings</span>
+        <span class="endpoint-summary">Obtiene la configuración general de la aplicación</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Retorna los ajustes de configuración del sistema. Este endpoint permite al cliente recuperar los parámetros de configuración de la aplicación. No requiere cuerpo en la solicitud.</p>
+
+        
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">Configuración obtenida exitosamente</span>
+            </div>
+            <pre>{&#34;settings&#34;: {&#34;key&#34;: &#34;value&#34;}}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor al obtener la configuración</span>
+            </div>
+            <pre>{&#34;error&#34;: &#34;Internal server error&#34;}</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="server-all-docs">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-default">ALL</span>
+        <span class="endpoint-uri">/docs/</span>
+        <span class="endpoint-summary">Sirve la documentación estática de la API desde el directorio /docs/</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Este endpoint sirve archivos estáticos de documentación accesibles bajo la ruta /docs/. Utiliza el middleware http.StripPrefix de Go para eliminar el prefijo /docs/ de la ruta antes de buscar el archivo en el sistema de archivos o servidor de archivos configurado. Acepta todos los métodos HTTP estándar (GET, HEAD, etc.), aunque en la práctica solo GET y HEAD son relevantes para servir contenido estático. No requiere autenticación en la mayoría de configuraciones. El comportamiento exacto depende del file server configurado detrás del StripPrefix.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">path</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Ruta relativa al recurso de documentación deseado dentro del directorio /docs/. Por ejemplo, /docs/index.html accedería al archivo index.html. Si se omite, generalmente se sirve el archivo index por defecto.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">El archivo solicitado fue encontrado y se retorna correctamente. El Content-Type varía según la extensión del archivo (text/html, application/json, text/css, etc.).</span>
+            </div>
+            <pre>&#34;&lt;contenido del archivo estático solicitado&gt;&#34;</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-default">301</span>
+              <span class="response-desc">Redirección permanente, generalmente ocurre cuando se accede a un directorio sin barra final.</span>
+            </div>
+            <pre>{&#34;Location&#34;: &#34;/docs/&#34;}</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">El archivo o recurso solicitado no fue encontrado en el directorio de documentación.</span>
+            </div>
+            <pre>&#34;404 page not found&#34;</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">403</span>
+              <span class="response-desc">Acceso prohibido al recurso solicitado, por ejemplo al intentar listar un directorio sin archivo index.</span>
+            </div>
+            <pre>&#34;403 Forbidden&#34;</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">405</span>
+              <span class="response-desc">Método HTTP no permitido. Solo GET y HEAD son soportados para archivos estáticos.</span>
+            </div>
+            <pre>&#34;405 Method Not Allowed&#34;</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+    <div class="endpoint" id="server-all-">
+      <div class="endpoint-header" onclick="this.parentElement.classList.toggle('open')">
+        <span class="method-badge method-default">ALL</span>
+        <span class="endpoint-uri">/</span>
+        <span class="endpoint-summary">Manejador principal de la aplicación de página única (SPA)</span>
+      </div>
+      <div class="endpoint-body">
+        <p class="endpoint-description">Este endpoint actúa como el punto de entrada principal para una aplicación de página única (SPA). Responde a todos los métodos HTTP (GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD) en la ruta raíz &#39;/&#39;. El manejador spaHandler se encarga de servir los archivos estáticos de la SPA y redirigir todas las rutas no reconocidas al archivo index.html, permitiendo que el enrutamiento del lado del cliente tome el control. Este patrón es común en aplicaciones construidas con frameworks como React, Vue o Angular.</p>
+
+        
+
+        
+        <div class="section">
+          <div class="section-label">Parameters</div>
+          <div class="table-wrap">
+          <table>
+            <thead><tr><th>Name</th><th>Type</th><th>Required</th><th>Description</th></tr></thead>
+            <tbody>
+              
+              <tr>
+                <td class="param-name">path</td>
+                <td class="param-type">string</td>
+                <td><span class="badge-optional">optional</span></td>
+                <td class="param-desc">Cualquier segmento de ruta adicional será manejado por el enrutador del lado del cliente de la SPA. No se requieren parámetros específicos para este endpoint.</td>
+              </tr>
+              
+            </tbody>
+          </table>
+          </div>
+        </div>
+        
+
+        
+        <div class="section">
+          <div class="section-label">Responses</div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-success">200</span>
+              <span class="response-desc">Respuesta exitosa. Devuelve el archivo estático solicitado o el archivo index.html de la SPA para que el enrutador del cliente gestione la navegación.</span>
+            </div>
+            <pre>&lt;!DOCTYPE html&gt;&lt;html lang=&#34;en&#34;&gt;&lt;head&gt;&lt;meta charset=&#34;UTF-8&#34;&gt;&lt;title&gt;SPA App&lt;/title&gt;&lt;/head&gt;&lt;body&gt;&lt;div id=&#34;root&#34;&gt;&lt;/div&gt;&lt;/body&gt;&lt;/html&gt;</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-default">301</span>
+              <span class="response-desc">Redirección permanente. Puede ocurrir si se accede a la ruta sin el slash final u otras redirecciones canónicas.</span>
+            </div>
+            <pre>&lt;a href=&#34;/&#34;&gt;Moved Permanently&lt;/a&gt;</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-default">304</span>
+              <span class="response-desc">No modificado. El archivo estático solicitado no ha cambiado desde la última solicitud, se utilizan los recursos en caché del cliente.</span>
+            </div>
+            
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-client-error">404</span>
+              <span class="response-desc">No encontrado. En algunas configuraciones de spaHandler, si el archivo estático no existe y no hay fallback a index.html configurado, se devuelve este código.</span>
+            </div>
+            <pre>404 page not found</pre>
+          </div>
+          
+          <div class="response-item">
+            <div class="response-header">
+              <span class="status-badge status-server-error">500</span>
+              <span class="response-desc">Error interno del servidor. Ocurre si el spaHandler no puede leer o servir los archivos estáticos requeridos.</span>
+            </div>
+            <pre>500 Internal Server Error</pre>
+          </div>
+          
+        </div>
+        
+
+        
+      </div>
+    </div>
+    
+  </div>
+  
+  <div class="no-results" id="no-results">
+    No se encontraron endpoints que coincidan con la búsqueda.
+  </div>
+</main>
+
+<script>
+  function slugify(s) {
+    return s.toLowerCase().replace(/\s+/g, '-').replace(/[^a-z0-9-]/g, '');
+  }
+
+  function toggleNav() {
+    document.getElementById('sidebar').classList.toggle('open');
+    document.getElementById('nav-overlay').classList.toggle('open');
+  }
+  function closeNav() {
+    document.getElementById('sidebar').classList.remove('open');
+    document.getElementById('nav-overlay').classList.remove('open');
+  }
+
+  
+  function showSection(sectionId) {
+    document.querySelectorAll('.section-page').forEach(el => el.classList.remove('active'));
+    const target = document.getElementById(sectionId);
+    if (target) target.classList.add('active');
+  }
+
+  
+  function showEndpoint(endpointId, sectionId) {
+    showSection(sectionId);
+    document.querySelectorAll('.nav-item').forEach(el => el.classList.remove('active'));
+    event.currentTarget.classList.add('active');
+    const ep = document.getElementById(endpointId);
+    if (ep) {
+      ep.classList.add('open');
+      ep.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+    closeNav();
+  }
+
+  function toggleNavSection(id) {
+    document.getElementById(id).classList.toggle('collapsed');
+  }
+
+  
+  let activeMethod = 'ALL';
+
+  function setMethodFilter(btn) {
+    activeMethod = btn.dataset.method;
+    document.querySelectorAll('.mf-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    filterEndpoints();
+  }
+
+  function clearSearch() {
+    document.getElementById('search-input').value = '';
+    document.getElementById('search-clear').classList.remove('visible');
+    filterEndpoints();
+  }
+
+  function filterEndpoints() {
+    const query = document.getElementById('search-input').value.trim().toLowerCase();
+    const clearBtn = document.getElementById('search-clear');
+    clearBtn.classList.toggle('visible', query.length > 0);
+
+    const isSearching = query.length > 0 || activeMethod !== 'ALL';
+    let anyVisible = false;
+
+    document.querySelectorAll('.section-page').forEach(section => {
+      let sectionHasVisible = false;
+      section.querySelectorAll('.endpoint').forEach(ep => {
+        const uri     = (ep.querySelector('.endpoint-uri')?.textContent || '').toLowerCase();
+        const summary = (ep.querySelector('.endpoint-summary')?.textContent || '').toLowerCase();
+        const method  = (ep.querySelector('.method-badge')?.textContent || '').trim().toUpperCase();
+        const matchText   = !query || uri.includes(query) || summary.includes(query);
+        const matchMethod = activeMethod === 'ALL' || method === activeMethod;
+        const visible = matchText && matchMethod;
+        ep.style.display = visible ? '' : 'none';
+        if (visible) { sectionHasVisible = true; anyVisible = true; }
+      });
+      section.style.display = (!isSearching || sectionHasVisible) ? '' : 'none';
+      if (isSearching && sectionHasVisible) section.classList.add('active');
+    });
+
+    if (isSearching) {
+      document.querySelectorAll('.section-page').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.section-page').forEach(s => {
+        if (s.style.display !== 'none') s.classList.add('active');
+      });
+    } else {
+      const first = document.querySelector('.section-page');
+      document.querySelectorAll('.section-page').forEach(s => {
+        s.classList.remove('active');
+        s.style.display = '';
+        s.querySelectorAll('.endpoint').forEach(ep => ep.style.display = '');
+      });
+      if (first) first.classList.add('active');
+    }
+
+    document.getElementById('no-results').classList.toggle('visible', isSearching && !anyVisible);
+  }
+
+  
+  const firstSection = document.querySelector('.section-page');
+  if (firstSection) firstSection.classList.add('active');
+
+  
+  const firstEndpoint = document.querySelector('.section-page.active .endpoint');
+  if (firstEndpoint) firstEndpoint.classList.add('open');
+</script>
+</body>
+</html>
